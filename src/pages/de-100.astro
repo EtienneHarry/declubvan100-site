@@ -1,0 +1,23 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+import { leesPagina } from '../lib/pagina';
+
+/*
+ * De 100.
+ *
+ * De inhoud komt uit het CMS: src/content/paginas/de-100.yaml.
+ *
+ * Toon: directer en uitdagender dan op opdrachtgevers. Nadruk op erbij horen,
+ * op de betere klussen, en op wie er niet doorkomt.
+ *
+ * De drie kaarten Enthousiast, Ervaren en Trots dragen alleen het woord. Bron
+ * levert geen zin bij die waardes, en er is er hier geen bij verzonnen.
+ */
+
+const { titel, beschrijving, secties } = await leesPagina('de100');
+---
+
+<Basis titel={titel} beschrijving={beschrijving}>
+  <SectieLijst secties={secties} />
+</Basis>

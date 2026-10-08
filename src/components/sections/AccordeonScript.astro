@@ -1,0 +1,144 @@
+---
+/**
+ * Het accordeon: dichtklappen en openklappen.
+ *
+ * Apart Astro-bestand, net als TellerScript, OnthulScript en HaalScript: een
+ * <script> in een React-component belandt inline in de HTML en loopt op
+ * `script-src 'self'` stuk. Hier maakt Astro er een gewoon bestand van.
+ *
+ * DIT SCRIPT KLAPT EERST ALLES DICHT. In de HTML staan de antwoorden open, want
+ * zonder JavaScript hoort de sectie een gewone lijst met vragen en antwoorden te
+ * zijn. Pas als dit script draait, wordt het een accordeon.
+ *
+ * Het staat in de layout en dus op elke pagina. Zonder [data-accordeon-item]
+ * doet het niets.
+ */
+---
+
+<script>
+  const items = Array.from(document.querySelectorAll<HTMLElement>('[data-accordeon-item]'));
+
+  if (items.length > 0) {
+    /**
+     * Eén vraag open- of dichtzetten.
+     *
+     * Drie dingen tegelijk, en ze horen bij elkaar: het attribuut waar de CSS op
+     * kijkt, de toestand die een schermlezer voorleest, en `inert` op het
+     * paneel. Dat laatste is niet optioneel — een dichtgeklapt paneel staat op
+     * `grid-template-rows: 0fr` met `overflow: hidden`, en dat haalt de links
+     * erin niet uit de tab-volgorde. Zonder inert tabt de bezoeker door
+     * antwoorden die hij niet ziet.
+     */
+    /*
+     * VINDBAAR MET CTRL+F, WAAR DE BROWSER DAT KAN.
+     *
+     * inert haalt een dicht antwoord niet alleen uit de tab-volgorde maar ook
+     * uit "zoeken op de pagina": wie op 'loon' of 'contract' zocht, vond het
+     * antwoord niet terwijl het er stond. hidden="until-found" doet beide goed:
+     * de inhoud is niet te bereiken met de tab, maar de browser vindt hem wel,
+     * en vuurt dan `beforematch` — daarop klappen we het item open.
+     *
+     * Pas ná het dichtklappen. hidden="until-found" zet content-visibility op
+     * hidden, en dan heeft de inhoud meteen geen hoogte meer: zet je hem bij het
+     * begin van de transitie, dan springt het paneel dicht in plaats van te
+     * klappen. Tijdens de transitie houdt inert de tab-volgorde schoon.
+     *
+     * Een browser zonder beforematch houdt inert, zoals het was.
+     */
+    const VINDBAAR = 'onbeforematch' in document.body;
+
+    function zet(item: HTMLElement, open: boolean, direct = false) {
+      const knop = item.querySelector<HTMLButtonElement>('[data-accordeon-knop]');
+      const paneel = item.querySelector<HTMLElement>('[data-accordeon-paneel]');
+      const inhoud = paneel?.firstElementChild;
+      if (!knop || !paneel || !(inhoud instanceof HTMLElement)) return;
+
+      if (open) delete item.dataset.accordeonDicht;
+      else item.dataset.accordeonDicht = '';
+
+      knop.setAttribute('aria-expanded', String(open));
+
+      if (open) {
+        inhoud.removeAttribute('hidden');
+        paneel.inert = false;
+        return;
+      }
+
+      paneel.inert = true;
+      if (!VINDBAAR) return;
+
+      const verberg = () => {
+        // Inmiddels weer open geklikt? Dan niets verbergen.
+        if (item.dataset.accordeonDicht === undefined) return;
+        inhoud.setAttribute('hidden', 'until-found');
+        paneel.inert = false;
+      };
+
+      if (direct) {
+        verberg();
+        return;
+      }
+
+      const klaar = (gebeurtenis: TransitionEvent) => {
+        if (gebeurtenis.target !== paneel || gebeurtenis.propertyName !== 'grid-template-rows') return;
+        paneel.removeEventListener('transitionend', klaar);
+        verberg();
+      };
+      paneel.addEventListener('transitionend', klaar);
+    }
+
+    /*
+     * Alles dicht bij het laden, en zónder overgang.
+     *
+     * De overgang staat als transitie op het paneel, dus als we hier gewoon
+     * dichtzetten, klapt elk antwoord bij het laden van de pagina zichtbaar
+     * omhoog. Dat is beweging die niemand heeft aangevraagd. Het attribuut
+     * hieronder zet die transitie uit tot het eerste beeldje voorbij is.
+     */
+    document.documentElement.dataset.accordeonStil = '';
+
+    for (const item of items) zet(item, false, true);
+
+    // De browser vond een woord in een dicht antwoord: klap dat item open.
+    document.addEventListener(
+      'beforematch',
+      (gebeurtenis) => {
+        const doel = gebeurtenis.target;
+        if (!(doel instanceof Element)) return;
+        const item = doel.closest<HTMLElement>('[data-accordeon-item]');
+        if (item) zet(item, true);
+      },
+      true,
+    );
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        delete document.documentElement.dataset.accordeonStil;
+      });
+    });
+
+    /*
+     * Eén luisteraar voor de hele pagina in plaats van één per knop. Er staan er
+     * twaalf op een pagina en er kunnen er meer bij komen; dit schaalt zonder
+     * dat iemand eraan hoeft te denken.
+     */
+    document.addEventListener('click', (gebeurtenis) => {
+      const doel = gebeurtenis.target;
+      if (!(doel instanceof Element)) return;
+
+      const knop = doel.closest('[data-accordeon-knop]');
+      if (!knop) return;
+
+      const item = knop.closest<HTMLElement>('[data-accordeon-item]');
+      if (!item) return;
+
+      /*
+       * Eén tegelijk open of meerdere? Meerdere. Een bezoeker die twee vragen
+       * naast elkaar wil vergelijken, hoort dat te kunnen; en een accordeon die
+       * bij elke klik iets anders dichtklapt, verschuift de pagina onder de
+       * muis vandaan.
+       */
+      zet(item, item.dataset.accordeonDicht !== undefined);
+    });
+  }
+</script>

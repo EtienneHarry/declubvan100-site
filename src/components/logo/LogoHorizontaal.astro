@@ -1,0 +1,15 @@
+---
+/**
+ * Hoofdlogo: de horizontale lockup. Header, footer, briefpapier.
+ *
+ * De SVG staat op fill="currentColor" en erft dus de tekstkleur van zijn
+ * omgeving — één bestand voor licht en donker. Er is bewust geen prop om kleur
+ * of fill van buitenaf te zetten; wil je hem wit, zet dan de tekstkleur van de
+ * ouder. Formaat regelt de ouder ook: de SVG heeft alleen een viewBox.
+ */
+import Bron from '../../assets/logo/logo-horizontaal.svg';
+
+export type Props = Record<string, never>;
+---
+
+<Bron />

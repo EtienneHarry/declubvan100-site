@@ -1,0 +1,62 @@
+# build output
+dist/
+.vercel/
+
+# generated types
+.astro/
+
+# De webp-varianten van scripts/maak-beeldvarianten.mjs. Afgeleid materiaal:
+# `npm run build` maakt wat er ontbreekt, en dat is precies wat Vercel draait.
+#
+# Het patroon is met opzet nauw. Een variant heet `<naam>.<ext>-<breedte>.webp`,
+# dus de extensie van het origineel zit er nog in. Een kaal `*.webp` zou ook een
+# foto raken die de redacteur zelf als webp uploadt — die zou dan buiten git
+# vallen en bij de volgende uitcheck verdwenen zijn.
+public/beeld/**/*.jpg-*.webp
+public/beeld/**/*.jpeg-*.webp
+public/beeld/**/*.png-*.webp
+
+# src/lib/beeldvarianten.json staat hier bewust NIET bij. Dat bestand wordt wel
+# gegenereerd, maar `astro check` draait vóór `npm run build` en importeert het;
+# ontbreekt het, dan valt de poort om op een import die de generator een stap
+# later had aangemaakt.
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# environment variables
+#
+# Alle varianten, niet alleen .env. Keystatic schrijft de GitHub-App-gegevens
+# naar .env, maar Astro leest ook .env.local en .env.development — en die twee
+# stonden hier niet, dus een secret dat daar belandde was gewoon te committen.
+# Een client secret hoort nergens in de geschiedenis: die krijg je er niet meer
+# uit door het bestand later te verwijderen.
+.env
+.env.*
+!.env.example
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+
+# lokaal hulpspul van de agent-tooling: launch.json start de dev-server op 4321.
+# Per machine anders en niet nodig om de site te bouwen of te draaien.
+.claude/
+
+# Idem, en om dezelfde reden. .agents/ is een skill die de agent-tooling erbij
+# haalt (op dit moment refero-design, twaalf bestanden aan referentiemateriaal),
+# skills-lock.json houdt bij welke versie dat is. Allebei horen ze bij de
+# werkplek van degene die aan de site bouwt en niet bij de site: de build raakt
+# ze niet aan, en wie de repo uitcheckt om te deployen heeft er niets aan. Ze
+# worden bovendien door hun eigen tooling beheerd, dus in git zouden ze
+# ongevraagd blijven wijzigen.
+.agents/
+skills-lock.json

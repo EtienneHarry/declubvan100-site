@@ -1,0 +1,362 @@
+---
+/**
+ * Basislayout: het frame om elke pagina.
+ *
+ * De navigatie, de voettekst en de contactgegevens komen uit het CMS, uit de
+ * singleton "Site-instellingen". Ze stonden hier hard in tot B4.
+ *
+ * Donker is de standaard. Licht gaat per sectie en niet per pagina: een sectie
+ * op een lichte achtergrond — voorwaarden en privacy staan op papier — zet zelf
+ * data-thema="licht", waarna de semantische aliassen binnen die sectie
+ * meekantelen. Op <html> staat het nooit.
+ */
+import { getImage } from 'astro:assets';
+import { createReader } from '@keystatic/core/reader';
+
+import '../styles/global.css';
+import tokensCss from '../styles/tokens.css?raw';
+import deelbeeldBron from '../assets/photo/proost-tap.jpg';
+import keystaticConfig from '../../keystatic.config';
+import { basisUrl } from '../lib/site';
+import LogoHorizontaal from '../components/logo/LogoHorizontaal.astro';
+import Navigatie from '../components/navigatie/Navigatie.astro';
+import TellerScript from '../components/basis/TellerScript.astro';
+import OnthulScript from '../components/beweging/OnthulScript.astro';
+import HaalScript from '../components/merk/HaalScript.astro';
+import AccordeonScript from '../components/sections/AccordeonScript.astro';
+import FormulierScript from '../components/formulier/FormulierScript.astro';
+/*
+ * De twee lettertypebestanden van het eerste scherm, als URL. Vite geeft
+ * hetzelfde gehashte bestand terug waar de @font-face in global.css naar wijst,
+ * dus de preload hieronder en de stylesheet halen één en hetzelfde bestand.
+ *
+ * Alleen de latin-subset van de twee families die elke pagina bovenaan nodig
+ * heeft: Montserrat voor de koppen en de lopende tekst, Special Elite voor de
+ * bovenkop, de knoppen en de menuknop. Caveat staat maar op één plek en ver
+ * onder de vouw; die laadt gewoon wanneer hij nodig is.
+ */
+import montserratLatijn from '@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2?url';
+import machineLatijn from '@fontsource/special-elite/files/special-elite-latin-400-normal.woff2?url';
+
+// De merkkleur hoort niet als losse hex in dit bestand, dus lezen we hem bij
+// het bouwen uit de tokenlaag. Sinds de restyle is dat --bruin en niet --inkt:
+// theme-color kleurt de browserbalk mee met het vlak waar de site op staat.
+// Verdwijnt of hernoemt --bruin, dan breekt de build hier hard af in plaats van
+// stilletjes een lege theme-color te zetten.
+const merkkleurTreffer = tokensCss.match(/--bruin: *(#[0-9a-fA-F]+) *;/);
+
+if (!merkkleurTreffer) {
+  throw new Error(
+    'Token --bruin niet gevonden in src/styles/tokens.css; theme-color kan niet worden afgeleid.',
+  );
+}
+
+const merkkleur = merkkleurTreffer[1];
+
+interface Props {
+  titel?: string;
+  beschrijving?: string;
+  /** Houdt de pagina uit zoekmachines. Voor het sectieoverzicht. */
+  noindex?: boolean;
+}
+
+/*
+ * De site-instellingen komen uit het CMS. De reader leest de yaml tijdens het
+ * bouwen; er gaat niets van Keystatic naar de browser.
+ *
+ * Ontbreekt het bestand, dan valt read() terug op null en breekt de build hier
+ * hard af. Dat is beter dan een pagina zonder navigatie of zonder titel: die
+ * zou er af en toe gewoon uitzien.
+ */
+const reader = createReader(process.cwd(), keystaticConfig);
+const instellingen = await reader.singletons.instellingen.read();
+
+if (!instellingen) {
+  throw new Error(
+    'src/content/instellingen.yaml ontbreekt of is onleesbaar; de layout kan geen navigatie en geen contactgegevens opbouwen.',
+  );
+}
+
+const { contact } = instellingen;
+
+const {
+  titel = instellingen.naam,
+  beschrijving = instellingen.beschrijving,
+  noindex = false,
+}: Props = Astro.props;
+
+// Absolute URL's. Op een preview-deploy wijzen ze naar die deploy zelf, niet
+// naar productie; zie src/lib/site.ts.
+const basis = basisUrl(Astro.site, Astro.url.origin);
+
+// Astro levert het pad van een voorgerenderde route mét slotslash
+// (/opdrachtgevers/), de navigatie staat zonder. Zonder deze normalisatie viel
+// aria-current alleen op de home, want daar zijn ze allebei "/" — gemeten: op
+// de vier andere pagina's stond nergens aria-current.
+const zonderSlotslash = (pad: string) => (pad.length > 1 && pad.endsWith('/') ? pad.slice(0, -1) : pad);
+const huidig = zonderSlotslash(Astro.url.pathname);
+
+/*
+ * De canonieke URL is de vorm zonder slotslash, dezelfde als elke link op de
+ * site en in het CMS. Elke pagina geeft met en zonder slash een 200; tot B16
+ * zei de canonical "met", terwijl alle interne links "zonder" waren — een
+ * tegenstrijdig signaal aan een zoekmachine. De sitemap volgt dezelfde vorm;
+ * zie astro.config.mjs.
+ */
+const paginaUrl = new URL(huidig, basis);
+
+// Sociale kaart op precies 1200x630. proost-tap.jpg is 1745x1164, dus dit
+// snijdt bij en schaalt omlaag — nooit omhoog.
+const deelbeeld = await getImage({
+  src: deelbeeldBron,
+  width: 1200,
+  height: 630,
+  fit: 'cover',
+  format: 'jpg',
+});
+const deelbeeldUrl = new URL(deelbeeld.src, basis);
+
+/*
+ * Contactregels. Een leeg veld levert geen lege regel op maar verdwijnt: de
+ * redacteur die het telefoonnummer weghaalt, hoort geen streepje of kopje
+ * zonder inhoud terug te krijgen.
+ */
+const contactregels = [
+  contact.telefoon?.trim() ? { label: contact.telefoon, href: `tel:${contact.telefoon.replace(/\s/g, '')}` } : null,
+  contact.instagram?.trim()
+    ? {
+        label: `@${contact.instagram.replace(/^@/, '')}`,
+        // De vorm waar instagram.com zelf naar doorverwijst, zodat er geen 301 tussen zit.
+        href: `https://www.instagram.com/${contact.instagram.replace(/^@/, '')}/`,
+      }
+    : null,
+].filter((regel) => regel !== null);
+
+/** Zakelijke gegevens onderaan. Zelfde regel: leeg is weg. */
+const zakelijk = [
+  contact.adres?.trim() ? contact.adres : null,
+  contact.kvk?.trim() ? `KvK ${contact.kvk}` : null,
+  contact.btw?.trim() ? `Btw ${contact.btw}` : null,
+].filter((regel) => regel !== null);
+
+const jaar = new Date().getFullYear();
+
+/*
+ * Gestructureerde gegevens over de organisatie, voor zoekmachines. Alleen op
+ * de home: daar hoort de beschrijving van wie de site is. Alles komt uit de
+ * site-instellingen, dus het verandert mee als de redacteur iets aanpast, en
+ * een leeg veld valt eruit in plaats van leeg te worden meegestuurd.
+ *
+ * Organization en geen EmploymentAgency: de site zegt met zoveel woorden geen
+ * uitzendbureau te zijn. Het adres wordt uit één regel gehaald ("straat,
+ * postcode plaats"); lukt dat niet, dan gaat de hele regel als straatadres mee.
+ *
+ * Het staat als <script type="application/ld+json">. Dat is een datablok en
+ * geen script: de browser voert het niet uit en de CSP blokkeert het dus niet.
+ * check-csp laat precies dit type door, en alleen als de inhoud geldige JSON
+ * is. De < wordt ge-escapet, zodat tekst uit het CMS het blok nooit kan
+ * afsluiten.
+ */
+const adresDelen = contact.adres?.trim().match(/^(.+?),\s*(\d{4}\s?[A-Za-z]{2})\s+(.+)$/);
+const telefoonKaal = contact.telefoon?.replace(/\s/g, '');
+const instagramUrl = contact.instagram?.trim()
+  ? `https://www.instagram.com/${contact.instagram.replace(/^@/, '')}/`
+  : null;
+const organisatie = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: instellingen.naam,
+  url: basis.href,
+  logo: new URL('/apple-touch-icon.png', basis).href,
+  description: instellingen.beschrijving,
+  ...(contact.email?.trim() ? { email: contact.email.trim() } : {}),
+  ...(telefoonKaal ? { telephone: telefoonKaal } : {}),
+  ...(contact.adres?.trim()
+    ? {
+        address: adresDelen
+          ? {
+              '@type': 'PostalAddress',
+              streetAddress: adresDelen[1],
+              postalCode: adresDelen[2],
+              addressLocality: adresDelen[3],
+              addressCountry: 'NL',
+            }
+          : { '@type': 'PostalAddress', streetAddress: contact.adres.trim(), addressCountry: 'NL' },
+      }
+    : {}),
+  ...(contact.kvk?.trim()
+    ? { identifier: { '@type': 'PropertyValue', propertyID: 'KvK', value: contact.kvk.trim() } }
+    : {}),
+  ...(contact.btw?.trim() ? { vatID: contact.btw.trim() } : {}),
+  ...(instagramUrl ? { sameAs: [instagramUrl] } : {}),
+};
+const organisatieJson = JSON.stringify(organisatie).replace(/</g, '\\u003c');
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content={merkkleur} />
+    {/*
+      Zonder preload ontdekt de browser de lettertypes pas als de CSS binnen
+      is: gemeten op de live home vertrokken ze een volle CSS-rondreis later,
+      en de wissel van de systeemletter naar Montserrat verschoof de navigatie.
+      crossorigin hoort erbij, ook op hetzelfde domein: een lettertype wordt in
+      CORS-modus opgehaald, en zonder dat attribuut haalt de browser hem twee
+      keer.
+    */}
+    <link rel="preload" href={montserratLatijn} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={machineLatijn} as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <title>{titel}</title>
+    <meta name="description" content={beschrijving} />
+    {noindex ? <meta name="robots" content="noindex, nofollow" /> : null}
+    <link rel="canonical" href={paginaUrl.href} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="nl_NL" />
+    <meta property="og:title" content={titel} />
+    <meta property="og:description" content={beschrijving} />
+    <meta property="og:url" content={paginaUrl.href} />
+    <meta property="og:site_name" content={instellingen.naam} />
+    <meta property="og:image" content={deelbeeldUrl.href} />
+    {/*
+      De afmetingen erbij: sommige platforms tonen de grote kaart pas na een
+      tweede ophaalbeurt als ze die zelf moeten uitzoeken.
+    */}
+    <meta property="og:image:width" content={String(deelbeeld.attributes.width ?? 1200)} />
+    <meta property="og:image:height" content={String(deelbeeld.attributes.height ?? 630)} />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta
+      property="og:image:alt"
+      content="Twee Clubleden achter de tap van een buitenbar heffen lachend een glas bier"
+    />
+    {
+      huidig === '/' ? (
+        <script type="application/ld+json" set:html={organisatieJson} />
+      ) : null
+    }
+
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body class="bg-bruin text-krijt">
+    <a
+      href="#inhoud"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:bg-krijt focus:px-4 focus:py-3 focus:text-inkt"
+    >
+      Naar de inhoud
+    </a>
+
+    <header
+      class="sticky top-0 z-50 border-b border-lijn bg-vlak-nav backdrop-blur-nav"
+    >
+      <div
+        class="mx-auto flex min-h-[var(--hoogte-kopbalk)] max-w-basis items-center justify-between gap-x-6 px-marge py-2"
+      >
+        <a
+          href="/"
+          class="flex min-h-11 items-center no-underline"
+          aria-label={`${instellingen.naam}, naar de home`}
+        >
+          <span class="block [&>svg]:h-10 [&>svg]:w-auto"><LogoHorizontaal /></span>
+        </a>
+        <Navigatie
+          items={instellingen.navigatie.map((item) => ({
+            label: item.label,
+            href: zonderSlotslash(item.href),
+          }))}
+          huidig={huidig}
+        />
+      </div>
+    </header>
+
+    <main id="inhoud">
+      <slot />
+    </main>
+
+    <footer class="border-t border-lijn pt-16 pb-10">
+      <div class="mx-auto max-w-basis px-marge">
+        <div class="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
+          <div>
+            <span class="block [&>svg]:h-14 [&>svg]:w-auto"><LogoHorizontaal /></span>
+            <!-- Staat op zichzelf en is geen link middenin een zin, dus hij
+                 krijgt dezelfde hitzone als de rest. De mt gaat van 6 naar 4:
+                 min-h-11 zet 8,8px lucht boven de tekst en samen is dat weer
+                 de 24px van hiervoor. -->
+            <ul class="mt-4 flex list-none flex-col p-0 text-lopend-m text-tekst-zacht">
+              <li>
+                <a href={`mailto:${contact.email}`} class="inline-flex min-h-11 items-center">
+                  {contact.email}
+                </a>
+              </li>
+              {
+                contactregels.map((regel) => (
+                  <li>
+                    <a href={regel.href} class="inline-flex min-h-11 items-center">
+                      {regel.label}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+            {
+              zakelijk.length > 0 ? (
+                <p class="mt-4 text-lopend-s text-tekst-stil">
+                  {zakelijk.map((regel, index) => (
+                    <>
+                      {index > 0 ? <br /> : null}
+                      {regel}
+                    </>
+                  ))}
+                </p>
+              ) : null
+            }
+          </div>
+          {
+            instellingen.voettekst.map((kolom) => (
+              <div>
+                {/*
+                  De hitzone van 44px die het design system op elke
+                  navigatielink zet. De links waren 17px hoog met 12px ertussen,
+                  dus hart-op-hart 38px; met min-h-11 en zonder gat wordt dat 44
+                  en groeit een kolom van drie links met 17px. De kopmarge gaat
+                  van 4 naar 2 omdat min-h-11 er zelf 8,8px lucht boven zet.
+                */}
+                <h2 class="mb-2 font-machine text-bovenkop uppercase text-tekst-stil">{kolom.kop}</h2>
+                <ul class="flex list-none flex-col p-0">
+                  {kolom.items.map((item) => (
+                    <li>
+                      <a
+                        href={item.href}
+                        class="inline-flex min-h-11 items-center text-tekst-zacht no-underline hover:text-krijt hover:underline"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </div>
+        <div
+          class="mt-16 flex flex-wrap justify-between gap-6 border-t border-lijn pt-6 text-lopend-s text-tekst-stil"
+        >
+          <span>{instellingen.naam}</span>
+          <span>&copy; {jaar}</span>
+        </div>
+      </div>
+    </footer>
+
+    <TellerScript />
+    <OnthulScript />
+    <HaalScript />
+    <AccordeonScript />
+    <FormulierScript />
+  </body>
+</html>

@@ -1,0 +1,31 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+import { leesPagina } from '../lib/pagina';
+
+/*
+ * Contact.
+ *
+ * De inhoud komt uit het CMS: src/content/paginas/contact.yaml.
+ *
+ * Het aanmeldformulier staat er sinds B13. Het is een sectie in het CMS, dus de
+ * kop en de tekst erboven zijn redactioneel; de velden niet, want die liggen
+ * vast in wat de privacyverklaring belooft.
+ *
+ * FormulierScript staat sinds B16 in de layout, naast de andere vier scripts:
+ * het CMS laat het formulierblok op elke pagina toe, en een formulier zonder
+ * script mist zijn tijdstempel en zijn bezig-stand.
+ *
+ * Deze pagina blijft vooraf gerenderd. Alleen /contact/verzenden draait op
+ * verzoek — die heeft een server nodig, deze niet.
+ *
+ * De contactgegevens staan in de site-instellingen en onderaan elke pagina. De
+ * kaarten die hier eerst stonden, zijn op verzoek van de klant weggehaald.
+ */
+
+const { titel, beschrijving, secties } = await leesPagina('contact');
+---
+
+<Basis titel={titel} beschrijving={beschrijving}>
+  <SectieLijst secties={secties} />
+</Basis>

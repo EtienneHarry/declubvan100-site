@@ -1,0 +1,1583 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst, type Sectie } from '../lib/SectionRenderer';
+import Knop, { type KnopVariant } from '../components/basis/Knop';
+import Beeldvlak from '../components/beeld/Beeldvlak';
+import Bovenkop from '../components/basis/Bovenkop';
+import Ovaal from '../components/merk/Ovaal';
+import Streep from '../components/merk/Streep';
+import Markdoc from '@markdoc/markdoc';
+
+import foto from '../assets/photo/proost-tap.jpg';
+
+/*
+ * Beheerbaarheidstest.
+ *
+ * Elk van de zeven sectietypes vier keer, onder de omstandigheden waar een
+ * sjabloon normaal op stukloopt: een te lange kop, een lege tekst, weinig items
+ * en veel items. Bij beeld-tekst en splitscreen komt op de vierde plek een
+ * ontbrekende afbeelding in plaats van veel items.
+ *
+ * Niet elk type heeft items. Bij kop-tekst, beeld-tekst en oproep vertalen
+ * "weinig" en "veel" zich naar de hoeveelheid tekst en het aantal optionele
+ * onderdelen — dat is daar het equivalent van een leeg of overvol blok.
+ *
+ * De achtergrondtokens wisselen per geval, zodat zichtbaar wordt of secties in
+ * willekeurige volgorde naast elkaar blijven kloppen en of het lichte thema
+ * meekantelt.
+ *
+ * Onderaan staat een vijfde blok dat geen variant is maar een regressietest:
+ * één splitscreen met een extreem lange kop, die de overflow-bug in Beeldvlak
+ * moet blootleggen zodra iemand daar grid-cols-1 of w-full weghaalt.
+ *
+ * Daarna volgt "beweging": elk sectietype staat hier ver genoeg onder de vouw
+ * om de scrollonthulling echt af te zien gaan, en één geval is er alleen voor
+ * het ritme, het masker en de zoom.
+ */
+
+/*
+ * De formuliergevallen hieronder staan open, behalve in productie. Daar is
+ * /secties gewoon bereikbaar, en een open formulier post naar de echte route:
+ * zodra FORMULIER_ACTIEF op ja staat, kon een bot via deze testpagina echte
+ * mail laten versturen. In productie tonen ze dus de melding in plaats van de
+ * velden; lokaal en op een preview staan ze open, en daar is dit overzicht voor.
+ */
+const DEMO_ACTIEF = process.env['VERCEL_ENV'] !== 'production';
+
+const LANGE_KOP =
+  'Een kop die bewust veel te lang is gemaakt om te zien of hij netjes over meerdere regels afbreekt in plaats van uit zijn sectie te lopen of het raster op te rekken';
+
+const LOPENDE_TEKST =
+  'Iedereen die hier staat, heeft honderd avonden achter een bar gestaan. Wij regelen de mensen, jij regelt de rest.';
+
+const LANGE_TEKST = `${LOPENDE_TEKST} ${LOPENDE_TEKST} ${LOPENDE_TEKST}`;
+
+const BEELD = { bron: foto.src, alt: 'Twee mensen proosten aan de buitenbar' };
+
+/*
+ * Een staande foto, rechtstreeks uit public/beeld en dus langs Astro's
+ * beeldpijplijn heen — precies zoals een foto die de redacteur in het CMS
+ * kiest. Het merendeel van de aangeleverde fotografie is 1333x2000.
+ */
+const STAAND_BEELD = {
+  bron: '/beeld/staff-wanted-web.jpg',
+  alt: 'Aanplakbiljet met de tekst staff wanted tegen een muur',
+};
+
+/*
+ * Regressie. Beeldvlak sneed inhoud af zolang het een vaste verhouding met
+ * absoluut gepositioneerde tekst was: op 375px verdween hier 309px kop en tekst
+ * boven de rand. De reparatie hangt aan grid-cols-1 en w-full in Beeldvlak, en
+ * die zien er allebei weglaatbaar uit.
+ *
+ * Deze kop is expres extreem. Op 375px moet hij het vlak laten meegroeien —
+ * niets afgesneden, niets buiten de viewport.
+ */
+const REGRESSIE_KOP =
+  'Een kop die zo lang is dat hij op een telefoon acht of negen regels beslaat en daarmee ver voorbij de zestien-negen-verhouding van het beeldvlak groeit, wat precies de situatie is waarin de inhoud vroeger stilzwijgend werd weggeknipt in plaats van het vlak te laten meegroeien';
+
+/*
+ * De vijf knopvarianten. Als Record en niet als losse lijst: komt er in Knop
+ * een variant bij, dan eist TypeScript hier een regel en kan hij niet stil
+ * ongetest blijven.
+ */
+const KNOPVARIANTEN: Record<KnopVariant, string> = {
+  vuur: 'Vuur — de primaire actie',
+  inkt: 'Inkt — de zwarte knop',
+  vol: 'Vol — wit, van vóór de restyle',
+  lijn: 'Lijn — secundair',
+  kaal: 'Kaal — tertiair',
+};
+
+function kolommen(aantal: number, metTekst = true) {
+  return Array.from({ length: aantal }, (_, index) => ({
+    nummer: String(index + 1).padStart(2, '0'),
+    kop: `Kaart ${index + 1}`,
+    tekst: metTekst ? 'Tappen onder druk, cocktails, opbouw en afbouw.' : '',
+  }));
+}
+
+function citaten(aantal: number) {
+  return Array.from({ length: aantal }, (_, index) => ({
+    citaat: `Ze stonden er op tijd en ze wisten wat ze deden. Citaat ${index + 1}.`,
+    naam: `Opdrachtgever ${index + 1}`,
+    rol: 'Festivalorganisatie',
+  }));
+}
+
+const gevallen: { naam: string; secties: Sectie[] }[] = [
+  {
+    naam: 'formulier — de twee varianten naast elkaar',
+    secties: [
+      {
+        type: 'formulier',
+        actief: DEMO_ACTIEF,
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        variant: 'aanmelden',
+        bovenkop: 'Aanmelden',
+        kop: LANGE_KOP,
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'formulier',
+        actief: DEMO_ACTIEF,
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        variant: 'inhuren',
+        kop: 'Inhuren vraagt naar de zaak in plaats van naar ervaring',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    naam: 'formulier — op een lichte sectie, en zonder tekst eronder',
+    secties: [
+      {
+        type: 'formulier',
+        actief: DEMO_ACTIEF,
+        achtergrond: 'papier',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        variant: 'aanmelden',
+        kop: 'Hetzelfde formulier op papier',
+        tekst:
+          'Het verhoogde vlak van de velden kantelt mee: roet op een donkere sectie, mist op een lichte. Met de rauwe kleur zou hier een zwart veld staan.',
+      },
+      {
+        type: 'formulier',
+        actief: DEMO_ACTIEF,
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        variant: 'inhuren',
+        kop: 'Zonder tekst eronder',
+      },
+    ],
+  },
+  {
+    naam: 'formulier — uitgeschakeld, zoals wanneer FORMULIER_ACTIEF ontbreekt',
+    secties: [
+      {
+        type: 'formulier',
+        actief: false,
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        variant: 'aanmelden',
+        kop: 'Meld je aan',
+        tekst: 'De kop en de zin blijven staan; alleen de velden zijn weg.',
+      },
+    ],
+  },
+  {
+    naam: 'formulier — alles afgekeurd tegelijk',
+    secties: [
+      {
+        type: 'formulier',
+        actief: DEMO_ACTIEF,
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        variant: 'aanmelden',
+        kop: 'Zo ziet het eruit als de route elk veld terugstuurt',
+        tekst: 'Met een algemene melding erboven en een fout onder elk veld.',
+        fouten: {
+          algemeen:
+            'Er ging iets mis bij ons. Probeer het zo nog een keer, of bel gewoon even — of mail naar contact@declubvan.nl.',
+          naam: 'We hebben je naam nodig, anders weten we niet wie je bent',
+          email: 'Dit adres klopt niet helemaal — kijk je even mee?',
+          enthousiasme: 'Vertel het in een paar woorden, daar zijn we benieuwd naar',
+          bericht: 'Schrijf even waar het over gaat, dan weten we wat je zoekt',
+        },
+        waardes: {
+          naam: '',
+          email: 'geen-adres',
+          telefoon: LANGE_KOP,
+          bericht: '',
+        },
+      },
+    ],
+  },
+  {
+    naam: 'te lange kop',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        bovenkop: 'Een bovenkop die ook al aan de lange kant is',
+        kop: LANGE_KOP,
+        tekst: LOPENDE_TEKST,
+        knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+        tweedeKnop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+        schicht: true,
+      },
+      {
+        type: 'splitscreen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        deuren: [
+          {
+            bovenkop: 'Opdrachtgevers',
+            kop: LANGE_KOP,
+            tekst: LOPENDE_TEKST,
+            knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+            beeld: BEELD,
+          },
+          {
+            bovenkop: 'Professionals',
+            kop: LANGE_KOP,
+            tekst: LOPENDE_TEKST,
+            knop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+            beeld: BEELD,
+          },
+        ],
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Over ons',
+        kop: LANGE_KOP,
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Werkwijze',
+        kop: LANGE_KOP,
+        tekst: LOPENDE_TEKST,
+        beeld: BEELD,
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'papier',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: LANGE_KOP,
+        items: kolommen(3),
+      },
+      {
+        type: 'citaten',
+        achtergrond: 'mist',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Wat ze zeggen',
+        items: [{ citaat: LANGE_KOP, naam: 'Een opdrachtgever', rol: 'Horeca' }],
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: LANGE_KOP,
+        tekst: LOPENDE_TEKST,
+        knop: { label: 'Ik zoek personeel', href: '/contact' },
+      },
+      {
+        type: 'rijke-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-m',
+        breedte: 'smal',
+        kop: LANGE_KOP,
+        inhoud: Markdoc.parse(`## ${LANGE_KOP}\n\n${LOPENDE_TEKST}`),
+      },
+    ],
+  },
+  {
+    naam: 'lege tekst',
+    secties: [
+      {
+        // Met beeld loopt de kop door Beeldvlak. schicht staat hier expres aan:
+        // beeld wint, de schicht hoort dan niet te verschijnen.
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-s',
+        breedte: 'basis',
+        kop: 'Een van de 100',
+        tekst: '',
+        beeld: BEELD,
+        schicht: true,
+      },
+      {
+        type: 'splitscreen',
+        achtergrond: 'roet',
+        ruimte: 'sectie-s',
+        breedte: 'breed',
+        deuren: [
+          { kop: 'Opdrachtgevers', tekst: '', beeld: BEELD },
+          { kop: 'Professionals', tekst: '', beeld: BEELD },
+        ],
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-s',
+        breedte: 'smal',
+        kop: 'Een gewone kop',
+        tekst: '',
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'mist',
+        ruimte: 'sectie-s',
+        breedte: 'basis',
+        kop: 'Een gewone kop',
+        tekst: '',
+        beeld: BEELD,
+        beeldPositie: 'rechts',
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-s',
+        breedte: 'basis',
+        items: kolommen(3, false),
+      },
+      {
+        type: 'citaten',
+        achtergrond: 'papier',
+        ruimte: 'sectie-s',
+        breedte: 'basis',
+        items: [{ citaat: 'Ze stonden er op tijd.' }],
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'roet',
+        ruimte: 'sectie-s',
+        breedte: 'basis',
+        kop: 'Een gewone kop',
+        tekst: '',
+        knop: { label: 'Stuur maar', href: '/contact' },
+      },
+      {
+        type: 'rijke-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-s',
+        breedte: 'smal',
+        inhoud: Markdoc.parse(''),
+      },
+    ],
+  },
+  {
+    naam: 'weinig items',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'smal',
+        kop: 'Alleen een kop',
+      },
+      {
+        type: 'splitscreen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        deuren: [
+          {
+            kop: 'Eén enkele deur',
+            tekst: LOPENDE_TEKST,
+            knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+            beeld: BEELD,
+          },
+        ],
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'smal',
+        kop: 'Alleen een kop',
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'roet',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        kop: 'Alleen een kop en beeld',
+        beeld: BEELD,
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        bovenkop: 'Diensten',
+        kop: 'Twee kaarten',
+        items: kolommen(2),
+      },
+      {
+        type: 'citaten',
+        achtergrond: 'mist',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        items: citaten(1),
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        kop: 'Alleen een kop en een knop',
+        knop: { label: 'Stuur maar', href: '/contact' },
+      },
+      {
+        // Zonder sectiekop. De kopblokken zijn dan zelf het bovenste niveau en
+        // horen <h2> te zijn; met een sectiekop erboven zakken ze naar <h3>.
+        // Dat tweede geval staat in "te lange kop" en in "veel items".
+        type: 'rijke-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'smal',
+        inhoud: Markdoc.parse(
+          `## Zonder sectiekop erboven\n\n${LOPENDE_TEKST}\n\n- Eerste punt\n- Tweede punt`,
+        ),
+      },
+    ],
+  },
+  {
+    naam: 'veel items · ontbrekend beeld',
+    secties: [
+      {
+        // Lege bron: geen gebroken afbeelding, geen leeg kader. De hero valt
+        // terug op het egale vlak en de schicht mag dan wél verschijnen.
+        type: 'hero',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'breed',
+        bovenkop: 'Zonder beeld',
+        kop: 'Een van de 100',
+        tekst: LANGE_TEKST,
+        knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+        beeld: { bron: '', alt: '' },
+        schicht: true,
+      },
+      {
+        type: 'splitscreen',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'breed',
+        deuren: [
+          {
+            bovenkop: 'Opdrachtgevers',
+            kop: 'Zonder beeld',
+            tekst: LOPENDE_TEKST,
+            knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+          },
+          {
+            bovenkop: 'Professionals',
+            kop: 'Ook zonder beeld',
+            tekst: LOPENDE_TEKST,
+            knop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+          },
+        ],
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Veel tekst',
+        kop: 'Een gewone kop',
+        tekst: LANGE_TEKST,
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Zonder beeld',
+        kop: 'De beeldkolom valt weg',
+        tekst: LANGE_TEKST,
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'breed',
+        kop: 'Acht kaarten',
+        items: kolommen(8),
+      },
+      {
+        type: 'citaten',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'breed',
+        bovenkop: 'Wat ze zeggen',
+        items: citaten(6),
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'mist',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Aan de slag',
+        kop: 'Twee acties naast elkaar',
+        tekst: LANGE_TEKST,
+        knop: { label: 'Ik zoek personeel', href: '/contact' },
+        tweedeKnop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+      },
+      {
+        type: 'rijke-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-m',
+        breedte: 'smal',
+        kop: 'Algemene voorwaarden',
+        schichtLijst: true,
+        // Ook de inline-opmaak die het schema toelaat: vet, cursief en een
+        // link. Zonder dit blijft die tak van de renderer ongetest.
+        inhoud: Markdoc.parse(
+          `${LANGE_TEKST}\n\n## Artikel 1 — Wie we zijn\n\n${LANGE_TEKST}\n\n- Eerste punt\n- Tweede punt\n- Derde punt\n- Vierde punt\n\n### Een kop een niveau dieper\n\n**Vet**, *cursief* en een [link naar contact](/contact).`,
+        ),
+      },
+    ],
+  },
+  {
+    naam: 'regressie · extreem lange kop in splitscreen',
+    secties: [
+      {
+        type: 'splitscreen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        deuren: [
+          {
+            bovenkop: 'Opdrachtgevers',
+            kop: REGRESSIE_KOP,
+            tekst: LANGE_TEKST,
+            knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+            beeld: BEELD,
+          },
+          {
+            bovenkop: 'Professionals',
+            kop: REGRESSIE_KOP,
+            tekst: LANGE_TEKST,
+            knop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+            beeld: BEELD,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    /*
+     * Regressie. Een staande foto van 1333x2000 in het liggende vlak van 16:9
+     * verloor 63% van zijn hoogte, gemeten. Dat viel niet op omdat er geen
+     * vervorming bij komt kijken — object-cover snijdt netjes weg — en op deze
+     * fotografie snijdt het midden precies de hoofden eraf.
+     *
+     * De twee hieronder staan naast elkaar met dezelfde foto: links de vorm die
+     * erbij hoort, rechts de standaard. Wijkt de linker af van 4:5, dan is de
+     * verhoudingstabel in tokens.ts of de doorgave in BeeldTekst stuk.
+     */
+    naam: 'regressie · staande foto op 4:5 tegenover 16:9',
+    secties: [
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Staand op 4:5',
+        kop: 'De vorm die bij de foto past',
+        tekst: LOPENDE_TEKST,
+        beeld: STAAND_BEELD,
+        verhouding: 'portret',
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Dezelfde foto op 16:9',
+        kop: 'Wat de standaard ervan maakt',
+        tekst: LOPENDE_TEKST,
+        beeld: STAAND_BEELD,
+        beeldPositie: 'rechts',
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Vierkant',
+        kop: 'De derde uit de beeldrichtlijn',
+        tekst: LOPENDE_TEKST,
+        beeld: STAAND_BEELD,
+        verhouding: 'vierkant',
+      },
+    ],
+  },
+  {
+    /*
+     * Regressie. Drie manieren waarop de koppenvolgorde stil sneuvelde toen het
+     * kopniveau nog in de sectie zelf vastlag: geen h1, twee h1's, en een niveau
+     * dat halverwege omhoog ging.
+     *
+     * SectieLijst berekent het niveau nu over de hele lijst. Deze drie gevallen
+     * horen uit te komen op precies één h1, vooraan, zonder sprong.
+     */
+    naam: 'regressie · koppen zonder hero',
+    secties: [
+      {
+        // Geen hero. Zonder de berekening had deze pagina nul h1 en begon ze
+        // op h2; nu draagt de eerste sectie met een kop hem.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Zonder openingssectie',
+        kop: 'Deze kop opent de pagina',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: 'En deze zakt naar h2',
+        items: kolommen(2),
+      },
+    ],
+  },
+  {
+    naam: 'regressie · twee openingssecties',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Eerste',
+        kop: 'Deze blijft h1 en display-xl',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Tweede hero: geen tweede h1 en geen tweede display-xl. Hij zakt naar
+        // een gewone sectiekop op display-l.
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Tweede',
+        kop: 'Deze zakt naar h2 en display-l',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    /*
+     * De teller in de openingskop. Twee heroes naast elkaar: één met een getal
+     * en één zonder.
+     *
+     * Waar je op let: in de broncode staat 100 en niet 0 — het script telt
+     * ernaartoe, niet ervandaan. De kop mag niet wiebelen terwijl hij telt; de
+     * breedte van drie cijfers is gereserveerd met --maat-teller plus
+     * tabular-nums. En de kop zonder getal hoort geen extra elementen te
+     * krijgen.
+     *
+     * Sinds B16 een derde: een getal van vier cijfers telt niet. De
+     * gereserveerde breedte is drie cijfers; een jaartal zou erover heen lopen.
+     * En het getal staat maar één keer in de HTML — de kop leest als "Een van
+     * de 100" en niet als "Een van de 100100".
+     */
+    naam: 'teller · kop met en zonder getal',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Met getal',
+        kop: 'Een van de 100',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'hero',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Zonder getal',
+        kop: 'Honderd plekken',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Vier cijfers',
+        kop: 'Een van de 1000',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    /*
+     * Beweging. Deze pagina is de enige plek waar elk sectietype in bewegende
+     * toestand langskomt; op de zes echte pagina's staat nooit alles bij elkaar.
+     *
+     * Waar je op let, en dat is niet te zien op een screenshot — scroll ernaar
+     * toe en kijk:
+     *
+     *   - de ploeg loopt door: bovenkop, kop, dan kaart na kaart, 70ms uit
+     *     elkaar. Vanaf de negende kaart delen ze de laatste stap.
+     *   - de kop fadet niet in maar komt uit een masker omhoog, en de staarten
+     *     van de p en de g blijven heel in het laatste beeldje.
+     *   - de linkerdeur zoomt onder de muis, de rechter niet: die heeft geen
+     *     knop en verwijst dus nergens naar.
+     *   - niets verspringt. De onthulling loopt op transform en opacity, dus de
+     *     hoogte van de pagina verandert er niet van.
+     *
+     * Met "beweging beperken" aan in het systeem staat alles er meteen: geen
+     * verschuiving, geen wachttijd, geen masker en geen zoom.
+     */
+    naam: 'beweging · onthulling, ritme en zoom',
+    secties: [
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Het ritme',
+        kop: 'Acht kaarten na elkaar',
+        items: kolommen(8),
+        // De handgeschreven regel hoort achteraan in de ploeg: hij herhaalt wat
+        // de kaarten net gezegd hebben, dus hij komt pas als die er staan. Hij
+        // staat altijd op aria-hidden — zie Handschrift.
+        handschrift: 'Acht kaarten na elkaar',
+      },
+      {
+        type: 'splitscreen',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        deuren: [
+          {
+            bovenkop: 'Met knop',
+            kop: 'Deze deur zoomt onder de muis',
+            tekst: LOPENDE_TEKST,
+            knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+            beeld: BEELD,
+          },
+          {
+            bovenkop: 'Zonder knop',
+            kop: 'Deze gaat nergens heen en beweegt dus niet',
+            tekst: LOPENDE_TEKST,
+            beeld: BEELD,
+          },
+        ],
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Het masker',
+        // Staarten in de kop: de p, de g en de j moeten heel blijven.
+        kop: 'Opdrachtgevers, jongens en groepen',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    /*
+     * Het accordeon, in de vier omstandigheden waar een sjabloon op stukloopt.
+     * Dezelfde vier als bij de andere acht types: een te lange kop, een lege
+     * tekst, weinig items en veel items.
+     *
+     * Waar je op let, en dat is niet te zien op een screenshot:
+     *
+     *   - zonder JavaScript staat alles open. Zet scripts uit en herlaad: de
+     *     sectie hoort een gewone lijst met vragen en antwoorden te zijn, niet
+     *     twaalf vragen die niet opengaan.
+     *   - bij het laden klapt hij dicht zonder dat je het ziet bewegen. De
+     *     transitie staat uit tot het eerste beeldje voorbij is.
+     *   - tab loopt van vraag naar vraag, in leesvolgorde, en slaat de
+     *     antwoorden over die dicht staan. Dat laatste is inert; zonder dat
+     *     tabt de bezoeker door tekst die hij niet ziet.
+     *   - de vraag is een kop. Onder een sectiekop is hij h3, zonder sectiekop
+     *     h2 — check-koppen rekent erop.
+     *   - met "beweging beperken" aan klapt hij zonder tussenstap open.
+     */
+    naam: 'accordeon · vier omstandigheden',
+    secties: [
+      {
+        type: 'accordeon',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Te lange kop',
+        kop: LANGE_KOP,
+        items: [
+          {
+            vraag: LANGE_KOP,
+            antwoord: Markdoc.parse(LANGE_TEKST),
+          },
+          {
+            vraag: 'En een korte vraag ernaast?',
+            antwoord: Markdoc.parse(LOPENDE_TEKST),
+          },
+        ],
+      },
+      {
+        // Lege antwoorden. Er hoort een vraag te staan die opengaat naar niets,
+        // en geen kapotte rij.
+        type: 'accordeon',
+        achtergrond: 'roet',
+        ruimte: 'sectie-s',
+        breedte: 'basis',
+        bovenkop: 'Lege antwoorden',
+        kop: '',
+        items: [
+          { vraag: 'Een vraag zonder antwoord', antwoord: Markdoc.parse('') },
+          { vraag: 'En nog een', antwoord: Markdoc.parse('') },
+        ],
+      },
+      {
+        // Eén vraag, zonder sectiekop: de vraag is dan zelf het bovenste niveau
+        // van deze sectie en hoort h2 te zijn.
+        type: 'accordeon',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'smal',
+        items: [
+          {
+            vraag: 'Eén vraag, zonder kop erboven',
+            antwoord: Markdoc.parse(
+              `${LOPENDE_TEKST}\n\n- Eerste punt\n- Tweede punt\n\n**Vet**, *cursief* en een [link naar contact](/contact).`,
+            ),
+          },
+        ],
+      },
+      {
+        // Twaalf vragen, zoals de echte FAQ. Vanaf de negende deelt de ploeg de
+        // laatste stap; daaronder hoort er niets meer op te lopen.
+        type: 'accordeon',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Veel vragen',
+        kop: 'Twaalf stuks, zoals de echte lijst',
+        items: Array.from({ length: 12 }, (_, index) => ({
+          vraag: `Vraag ${index + 1} van de twaalf?`,
+          antwoord: Markdoc.parse(
+            index % 3 === 0 ? `${LOPENDE_TEKST}\n\n${LOPENDE_TEKST}` : LOPENDE_TEKST,
+          ),
+        })),
+      },
+    ],
+  },
+  {
+    /*
+     * De markering in de kop, langs de weg die ook echt gebruikt wordt: de
+     * redacteur typt haakjes in een tekstveld en de sectie zet er een haal van.
+     * De blokken bovenaan deze pagina zetten Ovaal en Streep rechtstreeks neer;
+     * dit geval test de vertaling ervoor.
+     *
+     * Tien koppen. Wat niet omgezet wordt, blijft staan zoals het getypt is —
+     * haakjes en al. Dat is met opzet zichtbaar: een tweede ovaal die stil
+     * verdwijnt, laat de redacteur denken dat het gelukt is.
+     *
+     * De drie met een sterretje erin gaan over de typemachine in de kop: de
+     * vorm uit de mockup, de vorm die andersom genest is en dus niet werkt, en
+     * een tweede stuk dat blijft staan zoals het getypt is.
+     */
+    naam: 'haal · de markering in de kop',
+    secties: [
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Zo hoort het',
+        kop: 'Geen nummertjes, maar [1 van de 100]',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'En de streep',
+        kop: 'Omdat groter niet altijd {beter is.}',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Allebei in één kop mag',
+        kop: 'Een [ovaal] en een {streep} naast elkaar',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Te lang voor één regel: HaalScript meet het en de ovaal blijft weg.
+        // De tekst zelf hoort er gewoon te staan, zonder haakjes.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Te lang voor een ovaal',
+        kop: `Hier staat [${REGRESSIE_KOP}]`,
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Vergeten sluiting: het haakje is een haakje en verder niets.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Sluiting vergeten',
+        kop: 'Kosten [vanaf 2026 en een accolade {die ook niet sluit',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Tweede paar van dezelfde soort: alleen de eerste wordt een haal.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Twee keer dezelfde soort',
+        kop: 'Eerst [een ovaal] en dan [nog een] erbij',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Twee letterrollen, zoals op De 100',
+        kop: 'Voor mensen die graag werken, maar niet willen dat hun *[hele agenda] wordt bepaald door hun bijbaan.*',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Andersom kan niet: een sterretje binnen een ovaal blijft een
+        // sterretje. De mockup kent die vorm niet.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Andersom genest',
+        // Korte woordgroep met opzet: de ovaal is 138% zo breed als zijn tekst,
+        // dus om een woordgroep van bijna de containerbreedte steekt hij
+        // buiten het venster — gemeten: 19px overloop op 768. Dat is geen bug
+        // maar de reden dat de regel "kort houden" bestaat; het geval hier
+        // test de nesting, niet de lengte.
+        kop: 'In een ovaal blijven [*sterretjes*] gewone tekst',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Twee typemachinestukken: alleen het eerste telt.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Twee keer typemachine',
+        kop: 'Eerst *dit stuk* en dan *nog een stuk* erbij',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        // Leeg paar: geen ovaal om niets.
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Leeg paar',
+        kop: 'Een leeg [] paar en een lege {} accolade',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    /*
+     * Fotokaarten: het drieluik uit de mockup. Drie staande foto's op 4:5 met
+     * de Engelse regel eronder, en een vierde kaart zónder foto ernaast — de
+     * rij moet heel blijven als een redacteur er één vergeet.
+     */
+    naam: 'restyle · fotokaarten op 4:5',
+    secties: [
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Het drieluik',
+        kop: 'Drie fotokaarten en een kale kaart',
+        items: [
+          { kop: 'Work when you want.', beeld: STAAND_BEELD },
+          { kop: 'Where you want.', beeld: STAAND_BEELD },
+          { kop: 'With people you like.', beeld: STAAND_BEELD },
+          { kop: 'Zonder foto', tekst: LOPENDE_TEKST },
+        ],
+        handschrift: 'Work when you want. Where you want. With people you like.',
+      },
+    ],
+  },
+  {
+    /*
+     * De landingshero: foto van rand tot rand, het eerste scherm hoog, inhoud
+     * onderin op de containerbreedte. De tweede hero heeft hetzelfde vinkje
+     * aan en is geen opening meer: die hoort terug te vallen op de gewone
+     * beeldbehandeling, met verhouding en containerbreedte.
+     */
+    naam: 'restyle · de beeldvullende hero',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        bovenkop: 'Meer dan een uitzendbureau. Echte mensen.',
+        kop: 'De Club van 100',
+        tekst: LOPENDE_TEKST,
+        knop: { label: 'Aanmelden', href: '/de-100' },
+        tweedeKnop: { label: 'Inhuren', href: '/opdrachtgevers' },
+        beeld: BEELD,
+        vullend: true,
+        dubbellaags: true,
+      },
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Tweede hero, zelfde vinkje',
+        kop: 'Deze valt terug op de gewone beeldbehandeling',
+        tekst: LOPENDE_TEKST,
+        beeld: BEELD,
+        vullend: true,
+      },
+    ],
+  },
+  {
+    /*
+     * Het dubbellaagse hero-effect. Drie heroes met alle drie het vinkje aan;
+     * er hoort er maar één te zijn waar je het aan ziet.
+     *
+     *   1. de eerste opent de lijst, staat dus op display-xl en krijgt de laag.
+     *   2. de tweede zakt naar display-l — hij is niet meer de paginakop — en
+     *      hoort de laag daarmee ook kwijt te raken. Dat hangt aan het
+     *      kopniveau en niet aan de prop; anders zou een tweede hero er stil
+     *      eentje bij zetten.
+     *
+     * Het geval erna doet de derde: dezelfde kop op papier, als eigen lijst
+     * zodat hij weer op display-xl staat. Daar staat --kop-dubbellaags op none,
+     * want de tekst is er zelf al inkt en de laag zou onder zijn eigen kleur
+     * vallen.
+     *
+     * Het is een tweede laag en geen contrastmiddel: de kop haalt zijn contrast
+     * uit wit op bruin (17,96:1), en een offset telt in WCAG niet mee.
+     */
+    naam: 'restyle · de dubbellaagse kop',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        bovenkop: 'Meer dan een uitzendbureau',
+        kop: 'De Club van 100',
+        tekst: LOPENDE_TEKST,
+        dubbellaags: true,
+      },
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Tweede hero, zelfde vinkje',
+        kop: 'Deze zakt naar display-l en verliest de laag',
+        tekst: LOPENDE_TEKST,
+        dubbellaags: true,
+      },
+    ],
+  },
+  {
+    /*
+     * Dezelfde kop op papier, en als eigen lijst zodat hij weer de eerste is en
+     * dus op display-xl staat. Zonder die eigen lijst zou hij naar display-l
+     * zakken en zou je meten dat het kopniveau werkt in plaats van dat het
+     * lichte thema de laag laat vervallen — twee redenen voor dezelfde
+     * uitkomst, en dan bewijst de meting niets.
+     */
+    naam: 'restyle · de dubbellaagse kop vervalt op licht',
+    secties: [
+      {
+        type: 'hero',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        bovenkop: 'Op papier',
+        kop: 'Hier vervalt de laag helemaal',
+        tekst: LOPENDE_TEKST,
+        dubbellaags: true,
+      },
+    ],
+  },
+  {
+    /*
+     * Het zwarte vlak op bruin. inkt is sinds de restyle geen paginakleur meer
+     * maar het vlak dat de mockup óp het bruin zet, en roet is het verhoogde
+     * vlak daarbinnen. Ze staan hier onder elkaar omdat het verschil tussen die
+     * drie klein is — 1,10:1 en 1,13:1 — en de lijn het werk doet.
+     *
+     * Waar je op let: de rand van de kaarten. Verdwijnt --lijn, dan verdwijnt
+     * het vlak in de sectie en is er niets meer te zien.
+     */
+    naam: 'restyle · zwart vlak en verhoogd vlak op bruin',
+    secties: [
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'De dominante achtergrond',
+        kop: 'Bruin',
+        tekst: LOPENDE_TEKST,
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'inkt',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Het zwarte vlak',
+        kop: 'Inkt, met kaarten op roet',
+        items: kolommen(3),
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'roet',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Het verhoogde vlak',
+        kop: 'Roet als sectie',
+        items: kolommen(3),
+      },
+    ],
+  },
+  {
+    naam: 'regressie · sectie met kop vóór de hero',
+    secties: [
+      {
+        // Deze stond vroeger op h2 met de hero eronder op h1: het niveau ging
+        // dan halverwege de pagina omhoog. Nu draagt deze de h1.
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: 'Deze staat bovenaan en draagt de h1',
+        items: kolommen(2),
+      },
+      {
+        type: 'hero',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Verplaatst',
+        kop: 'De hero staat nu tweede',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    /*
+     * Zes lege secties tussen twee gevulde. Als het goed is zie je hier twee
+     * blokken tegen elkaar aan en verder niets — geen achtergrond, geen
+     * verticale ruimte, geen gat.
+     *
+     * Elk van deze zes schilderde tot deze ronde gewoon zijn vlak en zijn
+     * ruimte. Alleen rijke-tekst had al een nultak. De aanleiding was een
+     * melding van een groot leeg bruin vlak onder aan een pagina; dat bleek
+     * niet in de inhoud te zitten, maar wél in elk van deze zes te kunnen
+     * ontstaan zodra een redacteur een sectie aanmaakt en niet vult.
+     *
+     * De kop-tekst hieronder draagt de h1 van dit geval. Zou de lege kop-tekst
+     * die opeisen, dan stond deze lijst zonder h1 — daarom vraagt
+     * draagtPaginakop() sinds deze ronde ook bij kop-tekst, beeld-tekst en
+     * oproep of er een kop is.
+     */
+    naam: 'lege secties renderen niets — zes stuks tussen twee gevulde',
+    secties: [
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Hierboven',
+        kop: 'Deze staat er wel',
+        tekst: LOPENDE_TEKST,
+      },
+      { type: 'kop-tekst', achtergrond: 'papier', ruimte: 'sectie-l', breedte: 'basis', kop: '' },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        kop: '   ',
+      },
+      { type: 'oproep', achtergrond: 'papier', ruimte: 'sectie-l', breedte: 'basis', kop: '' },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'papier',
+        ruimte: 'sectie-l',
+        breedte: 'basis',
+        items: [],
+      },
+      { type: 'citaten', achtergrond: 'papier', ruimte: 'sectie-l', breedte: 'basis', items: [] },
+      { type: 'accordeon', achtergrond: 'papier', ruimte: 'sectie-l', breedte: 'basis', items: [] },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Hieronder',
+        kop: 'En deze ook',
+        tekst: LOPENDE_TEKST,
+      },
+    ],
+  },
+  {
+    /*
+     * De andere kant van dezelfde regel: leeg is leeg, maar bijna leeg niet.
+     * Eén onderdeel is genoeg om een sectie te laten staan, en dat onderdeel
+     * verschilt per type. Zonder dit geval zou een strengere nultak — "geen kop
+     * betekent weg" — er net zo goed uitzien.
+     */
+    naam: 'bijna leeg blijft staan — één onderdeel is genoeg',
+    secties: [
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: '',
+        knop: { label: 'Alleen een knop', href: '/contact' },
+      },
+      {
+        type: 'beeld-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: '',
+        beeld: BEELD,
+      },
+      {
+        type: 'citaten',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Alleen een bovenkop, geen citaten',
+        items: [],
+      },
+      {
+        type: 'drie-kolommen',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: 'Alleen een kop, geen kaarten',
+        items: [],
+      },
+      {
+        type: 'accordeon',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: 'Alleen een kop, geen vragen',
+        items: [],
+      },
+      {
+        type: 'kop-tekst',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        kop: '',
+        tekst: 'Alleen tekst, geen kop.',
+      },
+    ],
+  },
+  {
+    /*
+     * De pijl mag één keer per pagina, en dat is een regel die SectieLijst
+     * afdwingt en niet de sectie. Hier vragen drie oproepen erom en krijgt
+     * alleen de eerste hem.
+     *
+     * Zonder dit geval zou een gebroken toekenning er precies zo uitzien als
+     * een werkende: er stáát een pijl, en dat hij er drie keer staat merk je
+     * alleen als je telt.
+     */
+    naam: 'pijl · drie vragen erom, alleen de eerste krijgt hem',
+    secties: [
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'De eerste',
+        kop: 'Deze krijgt de pijl',
+        tekst: LOPENDE_TEKST,
+        knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+        tweedeKnop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+        pijl: true,
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'De tweede',
+        kop: 'Deze vraagt er ook om en krijgt hem niet',
+        tekst: LOPENDE_TEKST,
+        knop: { label: 'Inhuren', href: '/contact' },
+        pijl: true,
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'De derde',
+        kop: 'En deze ook niet',
+        tekst: LOPENDE_TEKST,
+        knop: { label: 'Aanmelden', href: '/de-100' },
+        pijl: true,
+      },
+    ],
+  },
+  {
+    /*
+     * De randgevallen van de pijl zelf.
+     *
+     * Zonder knop is er niets om naar te wijzen; dan hoort hij weg te blijven
+     * in plaats van in de leegte te wijzen. En met een lang label breekt de
+     * knoptekst over twee regels — dan zegt HaalScript "breekt" en verdwijnt
+     * de svg, precies zoals bij een ovaal om een woordgroep die breekt.
+     */
+    naam: 'pijl · zonder knop, en naast een knop met een lang label',
+    secties: [
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Geen knop',
+        kop: 'Pijl gevraagd, maar er is geen knop',
+        tekst: LOPENDE_TEKST,
+        pijl: true,
+      },
+      {
+        type: 'oproep',
+        achtergrond: 'bruin',
+        ruimte: 'sectie-m',
+        breedte: 'basis',
+        bovenkop: 'Lang label',
+        kop: 'De knoptekst is hier veel te lang',
+        tekst: LOPENDE_TEKST,
+        knop: {
+          label: 'Ik zoek op zeer korte termijn ervaren horecapersoneel voor een groot evenement',
+          href: '/contact',
+        },
+        pijl: true,
+      },
+    ],
+  },
+];
+---
+
+{/*
+  Elk geval gaat als eigen lijst door SectieLijst, dus elk geval krijgt zijn
+  eigen <h1>. Op een echte pagina zou dat fout zijn; hier is het de bedoeling,
+  want elk geval ís een aparte pagina-in-het-klein. Deze pagina staat op
+  noindex en telt niet mee in check-koppen.
+*/}
+<Basis titel="Sectieoverzicht — De Club van 100" noindex>
+  {/*
+    De haal in de toestand "meteen volledig". Deze staat expres bovenaan, want
+    wat bij het laden al in beeld staat krijgt van OnthulScript de staat "klaar"
+    en dus geen animatie en geen wachttijd.
+
+    Dat is precies hetzelfde beeld als wat een bezoeker met gereduceerde
+    beweging overal op de site krijgt: haal.css staat helemaal binnen
+    (prefers-reduced-motion: no-preference) en het script zet zijn vlagje dan
+    niet, dus er valt niets te tekenen en staat de lijn er gewoon. HaalScript
+    draait wél — dat meet alleen of de tekst op één regel past, en die vraag is
+    voor deze bezoeker net zo goed van toepassing.
+
+    Zo controleer je het echt: zet "beweging beperken" aan in het systeem en
+    herlaad. Alles hieronder op deze pagina hoort er dan uit te zien als dit
+    blok — volledig getekend, zonder dat er iets is gebeurd.
+  */}
+  <div class="mx-auto max-w-breed px-marge pt-sectie-s">
+    <p class="font-machine text-bovenkop text-tekst-stil uppercase">
+      haal · meteen volledig, zoals bij gereduceerde beweging
+    </p>
+    <p class="mt-6 text-kop-l text-balance break-words">
+      Geen nummertjes, maar <Ovaal>1 van de 100</Ovaal>, en daarom is groter niet
+      altijd <Streep>beter.</Streep>
+    </p>
+  </div>
+
+  {/*
+    De drie families naast elkaar. Staat hier omdat dit de enige pagina is waar
+    je ze in één blikveld hebt: op een echte pagina komt de typemachine alleen
+    in labels en knoppen langs en het handschrift hoogstens één keer.
+
+    De handregel is er ook als geval: dezelfde zin staat er in gewone tekst
+    boven, dus het handschrift is een herhaling en staat op aria-hidden. Zo
+    hoort die regel eruit te zien; zonder de gewone tekst erboven zou hij
+    betekenisdragend zijn en helemaal niet in dit lettertype mogen staan.
+  */}
+  <div class="mx-auto max-w-breed px-marge pt-sectie-s">
+    <p class="font-machine text-bovenkop text-tekst-stil uppercase">typografie · drie families</p>
+    <p class="mt-6 text-display-l text-balance">Montserrat draagt de kop</p>
+    <p class="mt-4 text-lopend-l text-tekst-zacht">
+      En de lopende tekst. Eén familie voor allebei, alleen een ander gewicht en
+      een andere grootte — de breedte-as van Archivo bestaat hier niet meer.
+    </p>
+    <p class="mt-8 font-machine text-bovenkop text-cream uppercase">
+      Special Elite — labels, knoppen, één uitgelichte regel
+    </p>
+    <p class="mt-8 text-lopend-m text-tekst-zacht">
+      Work when you want. Where you want. With people you like.
+    </p>
+    <p aria-hidden="true" class="mt-2 font-hand text-kop-l text-cream">
+      Work when you want. Where you want. With people you like.
+    </p>
+  </div>
+  {/*
+    De vijf knopvarianten naast elkaar, in alle drie de maten. Een sectie
+    rendert er hoogstens twee — vuur en lijn — dus dit is de enige plek waar je
+    ze compleet ziet.
+
+    Waar je op let: de tekst staat in de typemachine, de knop op vuur heeft
+    witte tekst (5,65:1) en die op inkt cream (12,83:1). Cream op vuur zou
+    3,69:1 zijn en staat er daarom niet.
+  */}
+  <div class="mx-auto max-w-breed px-marge pt-sectie-m">
+    <p class="font-machine text-bovenkop text-tekst-stil uppercase">knoppen · vijf varianten</p>
+    {
+      Object.entries(KNOPVARIANTEN).map(([variant, uitleg]) => (
+        <div class="mt-8">
+          <p class="text-lopend-s text-tekst-stil">{uitleg}</p>
+          <div class="mt-3 flex flex-wrap items-center gap-4">
+            <Knop variant={variant as KnopVariant} maat="s" href="/contact">
+              Stuur maar
+            </Knop>
+            <Knop variant={variant as KnopVariant} maat="m" href="/contact">
+              Stuur maar
+            </Knop>
+            <Knop variant={variant as KnopVariant} maat="l" href="/contact">
+              Stuur maar
+            </Knop>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+
+  {/*
+    De twee sluiertonen op dezelfde foto. De lichte zet ook data-thema="licht",
+    dus de bovenkop en de knop erbinnen kantelen mee — dat is precies wat je
+    hier controleert, en niet alleen of de laag de goede kleur heeft.
+  */}
+  <div class="mx-auto max-w-breed px-marge pt-sectie-m">
+    <p class="font-machine text-bovenkop text-tekst-stil uppercase">sluier · donker en licht</p>
+    <div class="mt-8 grid gap-6 md:grid-cols-2">
+      <Beeldvlak bron={foto.src} alt={BEELD.alt} sluier="vlak" toon="donker" verhouding="breed">
+        <Bovenkop>Donker</Bovenkop>
+        <p class="mt-3 text-kop-m">Bruin op 62%, witte tekst</p>
+      </Beeldvlak>
+      <Beeldvlak bron={foto.src} alt={BEELD.alt} sluier="vlak" toon="licht" verhouding="breed">
+        <Bovenkop>Licht</Bovenkop>
+        <p class="mt-3 text-kop-m">Cream op 72%, donkere tekst</p>
+      </Beeldvlak>
+    </div>
+  </div>
+
+  {/*
+    De ovaal. Geen sectietype zet hem nog — de koppen waar hij omheen hoort
+    komen in sessie 2 — dus hij staat hier in markup die een sectie nabootst:
+    een kop met data-onthul en een stap, zodat de hele keten meedoet.
+
+    Waar je op let, en dat is niet te zien op een screenshot:
+
+      - de kop komt eerst binnen in het gewone ritme. Pas als die stilstaat,
+        200ms later, begint de ovaal zich te trekken. Ze horen niet tegelijk te
+        gebeuren.
+      - hij begint linksboven en gaat met de klok mee, in één haal, en houdt pas
+        op als hij over zijn eigen begin heen is. Dat overschot is het verschil
+        tussen een gebaar en een vorm.
+      - de lijn is overal even dik, ook waar de ovaal breed uitgerekt is. Zonder
+        vector-effect worden de zijkanten dik en de boven- en onderkant dun.
+      - de tweede kop is expres te lang voor één regel. Daar hoort géén ovaal te
+        staan: alleen de tekst. Maak het venster smal en kijk of de eerste ook
+        zijn ovaal verliest zodra hij breekt.
+  */}
+  <div class="mx-auto max-w-breed px-marge pt-sectie-m">
+    <p class="font-machine text-bovenkop text-tekst-stil uppercase">ovaal · tekent zichzelf</p>
+    <p
+      data-onthul="kop"
+      data-onthul-stap="1"
+      class="mt-6 text-display-l text-balance break-words"
+    >
+      Geen nummertjes, maar <Ovaal>1 van de 100</Ovaal>
+    </p>
+    <p
+      data-onthul="kop"
+      data-onthul-stap="2"
+      class="mt-12 text-kop-l text-balance break-words"
+    >
+      En hier staat <Ovaal>{REGRESSIE_KOP}</Ovaal>
+    </p>
+  </div>
+
+  {/*
+    Het onderstreepje. Zelfde mechaniek als de ovaal, dus wat hier bij komt is
+    alleen wat er anders is:
+
+      - hij is korter (350ms tegen 450) en loopt van links naar rechts.
+      - hij loopt merkbaar scheef omhoog. Waterpas zou hij als een rand lezen
+        of als de onderstreping van een browser.
+      - hij hangt ónder het regelvak, niet erin. De tweede kop hieronder heeft
+        staarten — een p, een g en een j — en die horen heel te blijven.
+      - hij mag vaker voorkomen dan de ovaal, maar nog steeds maximaal één per
+        sectie.
+  */}
+  <div class="mx-auto max-w-breed px-marge pt-sectie-m">
+    <p class="font-machine text-bovenkop text-tekst-stil uppercase">onderstreepje · korter</p>
+    <p
+      data-onthul="kop"
+      data-onthul-stap="1"
+      class="mt-6 text-display-l text-balance break-words"
+    >
+      Goede mensen op het moment dat je ze <Streep>nodig hebt.</Streep>
+    </p>
+    <p
+      data-onthul="kop"
+      data-onthul-stap="2"
+      class="mt-12 text-kop-l text-balance break-words"
+    >
+      Met staarten eronder: <Streep>opdrachtgevers, jongens en groepen</Streep>
+    </p>
+  </div>
+
+  {
+    gevallen.map((geval) => (
+      <>
+        <p class="mx-auto max-w-breed px-marge pt-sectie-s font-machine text-bovenkop text-tekst-stil uppercase">
+          {geval.naam}
+        </p>
+        <SectieLijst secties={geval.secties} />
+      </>
+    ))
+  }
+</Basis>

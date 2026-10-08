@@ -1,0 +1,171 @@
+---
+/**
+ * Het script achter Teller.tsx.
+ *
+ * Apart bestand omdat Teller een React-component is: een <script> daarin zou
+ * inline in de HTML belanden en op `script-src 'self'` stuklopen. Hier maakt
+ * Astro er een gewoon bestand van.
+ *
+ * Staat in de layout en dus op elke pagina. Hij doet niets zolang er geen
+ * [data-teller] op de pagina staat, en dat scheelt uitzoeken welke pagina er
+ * wel of niet een heeft.
+ */
+---
+
+<script>
+  const teller = document.querySelector<HTMLElement>('[data-teller]');
+
+  if (teller) {
+    const doel = Number(teller.textContent);
+
+    // Gereduceerde beweging: het getal staat al goed, dus we laten het staan.
+    // Niet "heel snel tellen" — dat is precies wat deze bezoeker niet vraagt.
+    const rustig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (Number.isFinite(doel) && !rustig) {
+      /*
+       * Duur en curve komen uit de tokenlaag, niet uit dit bestand. --duur-4 is
+       * in het design system de duur voor "beeld dat in beeld komt", en dat is
+       * precies wat hier gebeurt.
+       */
+      const stijl = getComputedStyle(document.documentElement);
+      const duur = Number.parseFloat(stijl.getPropertyValue('--duur-4'));
+      const curve = stijl.getPropertyValue('--soepel-uit');
+
+      /**
+       * Dezelfde curve als de CSS, maar dan in JavaScript. We animeren tekst en
+       * geen stijl, dus de browser kan het niet voor ons doen.
+       *
+       * Newton-Raphson op de x-as om t te vinden, daarna y uitrekenen. Vijf
+       * stappen is ruim genoeg voor een curve die tussen 0 en 1 loopt.
+       */
+      function versoepel(x1: number, y1: number, x2: number, y2: number) {
+        const a = (p: number, q: number) => 1 - 3 * q + 3 * p;
+        const b = (p: number, q: number) => 3 * q - 6 * p;
+        const c = (p: number) => 3 * p;
+
+        const bij = (t: number, p: number, q: number) =>
+          ((a(p, q) * t + b(p, q)) * t + c(p)) * t;
+        const helling = (t: number, p: number, q: number) =>
+          3 * a(p, q) * t * t + 2 * b(p, q) * t + c(p);
+
+        return (x: number) => {
+          let t = x;
+
+          for (let i = 0; i < 5; i++) {
+            const h = helling(t, x1, x2);
+            if (h === 0) break;
+            t -= (bij(t, x1, x2) - x) / h;
+          }
+
+          return bij(t, y1, y2);
+        };
+      }
+
+      const punten = /cubic-bezier\(([^)]+)\)/.exec(curve);
+      const [x1, y1, x2, y2] = punten
+        ? punten[1].split(',').map((deel) => Number.parseFloat(deel))
+        : [0, 0, 1, 1];
+
+      const soepel = versoepel(x1 ?? 0, y1 ?? 0, x2 ?? 1, y2 ?? 1);
+
+      /*
+       * Zolang er geteld wordt, hoort een schermlezer het eindgetal en niet
+       * honderd tussenstanden. Het tellende getal gaat daarom even op
+       * aria-hidden met een kopie ernaast, en na afloop is alles weer zoals in
+       * de HTML: één getal, zonder kopie.
+       */
+      let kopie: HTMLSpanElement | null = null;
+
+      function verbergVoorSchermlezer() {
+        teller!.setAttribute('aria-hidden', 'true');
+        kopie = document.createElement('span');
+        kopie.className = 'sr-only';
+        kopie.textContent = String(doel);
+        teller!.after(kopie);
+      }
+
+      function herstel() {
+        teller!.textContent = String(doel);
+        teller!.removeAttribute('aria-hidden');
+        kopie?.remove();
+        kopie = null;
+      }
+
+      /*
+       * Begin bij het eerste beeldje en niet bij performance.now(). De tijd die
+       * requestAnimationFrame meegeeft is het begin van dat beeldje, en dat kan
+       * vóór het moment van aanroepen liggen. Het verschil werd dan negatief,
+       * en de benadering van de curve schiet bij een negatieve x alle kanten op
+       * — gemeten in Chrome: de teller liep van 0 via 272 naar 100. Daarom ook
+       * de klem aan beide kanten.
+       */
+      function tel() {
+        let begin: number | null = null;
+
+        function stap(nu: number) {
+          begin ??= nu;
+          const verstreken = Math.min(Math.max((nu - begin) / duur, 0), 1);
+          const waarde = Math.min(Math.max(soepel(verstreken), 0), 1);
+          teller!.textContent = String(Math.round(waarde * doel));
+
+          if (verstreken < 1) requestAnimationFrame(stap);
+          // Aan het eind precies het doel, niet wat de afronding oplevert.
+          else herstel();
+        }
+
+        requestAnimationFrame(stap);
+      }
+
+      /*
+       * DE TELLING HANGT AAN DE KOP, NIET AAN EEN EIGEN KLOK.
+       *
+       * Tot B16 had de teller een eigen waarnemer en een eigen wachttijd van
+       * --aanloop. Maar de kop eromheen komt pas op --aanloop plus zijn stap in
+       * de ploeg binnen, uit een masker dat van boven naar onder opengaat — en
+       * het getal staat op de tweede regel. Doorgerekend: op het moment dat die
+       * regel zichtbaar werd, stond de teller al tussen 45 en 50. De klim van 0
+       * naar 100, waar het effect om draait, gebeurde grotendeels achter het
+       * masker.
+       *
+       * Nu: zodra de animatie van de kop begint, staat er een 0; als het masker
+       * klaar is, telt hij naar 100. De kop komt dus met een 0 binnen en loopt
+       * dan op.
+       *
+       * Komt de kop niet binnen met een animatie — al in beeld zonder entree, het
+       * vangnet in een tabblad op de achtergrond, gereduceerde beweging, of op
+       * papier — dan vuurt er niets en blijft de 100 gewoon staan. Dat lost ook
+       * de sprong van 100 naar 0 op die een tabblad op de achtergrond gaf.
+       *
+       * Eén keer per paginabezoek: de luisteraars ruimen zichzelf op.
+       */
+      const kop = teller.closest<HTMLElement>('[data-onthul]');
+
+      if (kop) {
+        const begint = (gebeurtenis: AnimationEvent) => {
+          if (gebeurtenis.target !== kop) return;
+          kop.removeEventListener('animationstart', begint);
+          verbergVoorSchermlezer();
+          teller.textContent = '0';
+        };
+
+        const maskerKlaar = (gebeurtenis: AnimationEvent) => {
+          if (gebeurtenis.target !== kop || gebeurtenis.animationName !== 'inslag-masker') return;
+          kop.removeEventListener('animationend', maskerKlaar);
+          tel();
+        };
+
+        kop.addEventListener('animationstart', begint);
+        kop.addEventListener('animationend', maskerKlaar);
+
+        /*
+         * Wordt de animatie afgebroken (het tabblad gaat op de achtergrond, of
+         * de staat springt naar 'klaar'), dan nooit op 0 blijven staan.
+         */
+        kop.addEventListener('animationcancel', (gebeurtenis) => {
+          if (gebeurtenis.target === kop) herstel();
+        });
+      }
+    }
+  }
+</script>

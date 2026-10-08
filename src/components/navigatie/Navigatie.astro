@@ -1,0 +1,199 @@
+---
+/**
+ * De hoofdnavigatie. Boven 900px een rij links, daaronder een menuknop met een
+ * uitklappaneel.
+ *
+ * Astro-component en geen React, net als de logo's: dit hoort bij de layout en
+ * niet bij een sectie. Het scheelt bovendien dat er geen React naar de browser
+ * gaat voor één menu — Astro bundelt het script hieronder tot een gewoon
+ * bestand, en dat is precies wat `script-src 'self'` toelaat. Een inline script
+ * zou geblokkeerd worden.
+ */
+interface Props {
+  items: { label: string; href: string }[];
+  huidig: string;
+}
+
+const { items, huidig } = Astro.props;
+
+/*
+ * De huidige pagina is krijt én onderstreept. Alleen krijt tegen krijt-zacht
+ * is 1,66:1 onderling, en als kleur het enige verschil is moet dat 3:1 zijn
+ * (WCAG 1.4.1). De streep is een vorm, en die ziet ook wie geen kleur ziet.
+ */
+const linkKlasse =
+  'inline-flex min-h-11 items-center px-4 font-semibold text-tekst-zacht no-underline hover:text-krijt aria-[current=page]:text-krijt aria-[current=page]:underline aria-[current=page]:decoration-current';
+---
+
+<nav aria-label="Hoofdnavigatie">
+  {/* Boven het breekpunt: de gewone rij. */}
+  <ul class="hidden list-none items-center gap-x-1 p-0 nav:flex">
+    {
+      items.map((item) => (
+        <li>
+          <a
+            href={item.href}
+            aria-current={huidig === item.href ? 'page' : undefined}
+            class={linkKlasse}
+          >
+            {item.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+
+  {/* Daaronder: de knop. De hitzone is 44px, net als elke navigatielink. */}
+  <button
+    type="button"
+    id="nav-knop"
+    aria-expanded="false"
+    aria-controls="nav-paneel"
+    class="inline-flex min-h-11 cursor-pointer items-center gap-3 border-0 bg-transparent px-4 font-machine text-knop text-tekst uppercase nav:hidden"
+  >
+    Menu
+    <span aria-hidden="true" class="flex flex-col gap-1">
+      <span class="block h-0.5 w-6 bg-current"></span>
+      <span class="block h-0.5 w-6 bg-current"></span>
+      <span class="block h-0.5 w-6 bg-current"></span>
+    </span>
+  </button>
+
+  {/*
+    Het paneel. Dicht is het `hidden`, oftewel display:none — daarmee staat het
+    ook niet meer in de toegankelijkheidsboom en is het niet per ongeluk met tab
+    te bereiken. Open zet het script `data-open`; boven het breekpunt wint
+    `nav:hidden` en bestaat het paneel niet.
+
+    BINNEN DE <nav>, en dat is sinds B16. Het stond ernaast in de header, en dan
+    bevatte het landmark "Hoofdnavigatie" op een telefoon alleen de knop: wie
+    met een schermlezer via landmarks navigeerde, vond er geen enkele link.
+
+    Absoluut gepositioneerd tegen de header, die sticky is en daarmee de
+    positioneringscontext levert — de <nav> zelf is niet gepositioneerd, dus
+    die zit er niet tussen. Zo klapt het paneel onder de balk uit over de volle
+    breedte, in plaats van als kolom naast het logo te gaan staan.
+  */}
+  <div
+    id="nav-paneel"
+    class="absolute top-full right-0 left-0 hidden border-t border-lijn bg-vlak-nav backdrop-blur-nav data-[open]:block nav:hidden"
+  >
+    <ul class="mx-auto flex max-w-basis list-none flex-col p-0 px-marge py-2">
+      {
+        items.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              aria-current={huidig === item.href ? 'page' : undefined}
+              class={`${linkKlasse} w-full px-0`}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</nav>
+
+<script>
+  const knopElement = document.getElementById('nav-knop');
+  const paneelElement = document.getElementById('nav-paneel');
+
+  if (knopElement && paneelElement) {
+    // Opnieuw vastleggen als niet-null. TypeScript laat de vernauwing van de
+    // if hierboven los zodra je hem in een functie hieronder gebruikt.
+    const knop: HTMLElement = knopElement;
+    const paneel: HTMLElement = paneelElement;
+
+    const isOpen = () => paneel.hasAttribute('data-open');
+
+    /*
+     * De knop hoort bij de cyclus. Hij is in dit paneel ook de sluitknop, en
+     * zonder hem kun je met shift+tab het menu uit lopen zonder het te sluiten.
+     */
+    const focusbaar = (): HTMLElement[] => [
+      knop,
+      ...paneel.querySelectorAll<HTMLAnchorElement>('a[href]'),
+    ];
+
+    function zetOpen(open: boolean) {
+      if (open) paneel.setAttribute('data-open', '');
+      else paneel.removeAttribute('data-open');
+
+      knop.setAttribute('aria-expanded', String(open));
+    }
+
+    knop.addEventListener('click', () => {
+      const nieuw = !isOpen();
+      zetOpen(nieuw);
+
+      if (nieuw) {
+        const eerste = paneel.querySelector<HTMLAnchorElement>('a[href]');
+        eerste?.focus();
+      }
+    });
+
+    document.addEventListener('keydown', (gebeurtenis) => {
+      if (!isOpen()) return;
+
+      if (gebeurtenis.key === 'Escape') {
+        gebeurtenis.preventDefault();
+        zetOpen(false);
+        // Terug naar de knop. Sluiten zonder de focus terug te geven laat hem
+        // op <body> achter, en dan begint de volgende tab weer bovenaan.
+        knop.focus();
+        return;
+      }
+
+      if (gebeurtenis.key !== 'Tab') return;
+
+      const elementen = focusbaar();
+      if (elementen.length === 0) return;
+
+      const eerste = elementen[0];
+      const laatste = elementen[elementen.length - 1];
+      const actief = document.activeElement;
+
+      // Focus die buiten het menu is beland, terughalen.
+      if (!(actief instanceof HTMLElement) || !elementen.includes(actief)) {
+        gebeurtenis.preventDefault();
+        eerste.focus();
+        return;
+      }
+
+      if (gebeurtenis.shiftKey && actief === eerste) {
+        gebeurtenis.preventDefault();
+        laatste.focus();
+      } else if (!gebeurtenis.shiftKey && actief === laatste) {
+        gebeurtenis.preventDefault();
+        eerste.focus();
+      }
+    });
+
+    /*
+     * Boven het breekpunt bestaat het paneel niet meer. Blijft `data-open` dan
+     * staan, dan klapt het weer open zodra iemand terugschaalt.
+     *
+     * Het breekpunt staat hier bewust niet als getal. 900px is een token in
+     * tokens.css; hier herhalen zou de waarde op twee plekken zetten, en de
+     * tokencontrole zou er terecht op vallen. In plaats daarvan kijken we of de
+     * knop zelf nog zichtbaar is: die staat op `nav:hidden`, dus zodra hij weg
+     * is, zijn we boven het breekpunt.
+     */
+    window.addEventListener('resize', () => {
+      const knopVerborgen = knop.offsetParent === null;
+      if (knopVerborgen && isOpen()) zetOpen(false);
+    });
+
+    /*
+     * Terug via de terugknop: dicht. De browser zet de pagina uit de
+     * back/forward-cache terug zoals hij hem verliet, en wie via het menu naar
+     * een andere pagina ging, verliet hem met het menu open — gemeten in Chrome:
+     * na terug stond aria-expanded nog op true, met de focusval actief.
+     */
+    window.addEventListener('pageshow', (gebeurtenis) => {
+      if (gebeurtenis.persisted && isOpen()) zetOpen(false);
+    });
+  }
+</script>

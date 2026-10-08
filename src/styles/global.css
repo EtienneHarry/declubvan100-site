@@ -1,0 +1,46 @@
+/* Drie families, alle drie zelf gehost. Zie het typografiehoofdstuk van
+   design-system.md voor wat elk van de drie mag dragen.
+
+   Montserrat bewust via wght.css: dat is de rechte weightas zonder de
+   cursieve tegenhanger, en die gebruikt deze site nergens. Special Elite en
+   Caveat op 400 — allebei hebben ze maar één gewicht nodig, want ze staan
+   nooit in lopende tekst. */
+@import '@fontsource-variable/montserrat/wght.css';
+@import '@fontsource/special-elite/400.css';
+@import '@fontsource/caveat/400.css';
+/* Tailwind kijkt alleen in src/ naar klassen. Zonder source() scant hij de hele
+   repo, en dan leverden CLAUDE.md, de docs en de poortscripts CSS op — onder
+   meer .font-[Arial], precies de rauwe lettertypenaam die check-tokens in de
+   bron verbiedt. Het pad is relatief aan dit bestand. */
+@import 'tailwindcss' source('../');
+@import './tokens.css';
+/* De scrollonthulling. Staat los van de tokenlaag: hier staat het mechanisme,
+   daar de waardes. Zie src/styles/beweging.css. */
+@import './beweging.css';
+/* De haal: de ovaal en het onderstreepje. Apart van beweging.css omdat maar
+   één van de drie dingen die hij doet beweging is. Zie src/styles/haal.css. */
+@import './haal.css';
+
+/*
+ * Op papier staat elk antwoord open. Het accordeon klapt dicht via
+ * grid-template-rows: 0fr met overflow hidden, en dat geldt op papier net zo
+ * goed — de veelgestelde vragen kwamen zonder één antwoord uit de printer.
+ *
+ * Deze regel staat ongelaagd en wint daardoor van de Tailwind-utility die het
+ * paneel dichtzet, ongeacht de specificiteit van diens attribuutvariant. Zie
+ * Laag 4 in CLAUDE.md voor waarom dat zo werkt.
+ *
+ * De tweede regel hoort erbij sinds AccordeonScript een dicht antwoord op
+ * hidden="until-found" zet, zodat Ctrl+F het vindt. Dat zet
+ * content-visibility op hidden, en dan bleef het paneel op papier open maar
+ * leeg.
+ */
+@media print {
+  [data-accordeon-paneel] {
+    grid-template-rows: 1fr;
+  }
+
+  [data-accordeon-paneel] [hidden='until-found'] {
+    content-visibility: visible;
+  }
+}

@@ -1,0 +1,25 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+import { leesPagina } from '../lib/pagina';
+
+/*
+ * Privacyverklaring.
+ *
+ * De inhoud komt uit het CMS: src/content/paginas/privacy.yaml, letterlijk
+ * overgenomen uit de privacyverklaring die de klant aanleverde.
+ *
+ * De <h1> staat in de hero, want RijkeTekst maakt er geen. De "# Privacy-
+ * verklaring" uit de bron staat daarom niet nog een keer in de tekst zelf.
+ *
+ * Deze pagina hoort bij het aanmeldformulier dat nog gebouwd moet worden. De
+ * verklaring noemt al wat dat formulier verzamelt en met welke partijen dat
+ * gedeeld wordt; wijkt het formulier daarvan af, dan moet deze tekst mee.
+ */
+
+const { titel, beschrijving, secties } = await leesPagina('privacy');
+---
+
+<Basis titel={titel} beschrijving={beschrijving}>
+  <SectieLijst secties={secties} />
+</Basis>

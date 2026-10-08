@@ -1,0 +1,48 @@
+titel: De Club van 100
+beschrijving: >-
+  Geen uitzendbureau, maar een selectie van honderd horeca- en
+  eventprofessionals in en rond Groningen. Wij regelen de mensen.
+secties:
+  - discriminant: hero
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-l
+        breedte: basis
+      bovenkop: Meer dan een uitzendbureau. Echte mensen.
+      kop: De Club van 100
+      tekst: >-
+        Geen uitzendbureau, maar een selectie van honderd horeca- en
+        eventprofessionals in en rond Groningen.
+      knop:
+        label: Aanmelden
+        href: /de-100
+      tweedeKnop:
+        label: Inhuren
+        href: /opdrachtgevers
+      beeld:
+        discriminant: true
+        value:
+          bron: /beeld/home/Jor Sep achter.jpg
+          alt: Twee Clubleden op de rug gezien in een Groningse straat, één met de schicht op zijn shirt
+      schicht: false
+      vullend: true
+      dubbellaags: true
+  - discriminant: oproep
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-l
+        breedte: basis
+      bovenkop: ""
+      kop: Wij regelen de mensen.
+      tekst: >-
+        Honderd horeca- en eventprofessionals, in en rond Groningen. Jij regelt
+        de rest.
+      knop:
+        label: Ik zoek personeel
+        href: /opdrachtgevers
+      tweedeKnop:
+        label: Ik wil bij jullie werken
+        href: /de-100
+      pijl: true

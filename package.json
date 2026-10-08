@@ -1,0 +1,46 @@
+{
+  "name": "declubvan100",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "node scripts/check-opslag.mjs && node scripts/check-resend.mjs && node scripts/maak-beeldvarianten.mjs && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "oxlint -c _adherence.oxlintrc.json",
+    "check": "npm run lint && node scripts/check-tokens.mjs && node scripts/check-yaml-commentaar.mjs && astro check && npm run build && node scripts/check-csp.mjs && node scripts/check-headers.mjs && node scripts/check-nesting.mjs && node scripts/check-koppen.mjs && node scripts/check-onthul.mjs && node scripts/check-beeldpaden.mjs && node scripts/check-links.mjs && node scripts/check-meegebundeld.mjs && node scripts/check-klassen.mjs && node scripts/check-sitemap.mjs"
+  },
+  "dependencies": {
+    "@astrojs/react": "^5.0.7",
+    "@astrojs/sitemap": "3.7.4",
+    "@astrojs/vercel": "^10.0.8",
+    "@fontsource-variable/montserrat": "^5.3.0",
+    "@fontsource/caveat": "^5.3.0",
+    "@fontsource/special-elite": "^5.3.0",
+    "@keystatic/astro": "5.1.0",
+    "@keystatic/core": "0.6.4",
+    "@markdoc/markdoc": "^0.4.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^6.4.8",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.3.3"
+  },
+  "overrides": {
+    "@keystatic/core": "0.6.4",
+    "vite": "^7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "oxlint": "^1.77.0",
+    "typescript": "^5.9.3"
+  }
+}

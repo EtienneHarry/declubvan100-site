@@ -1,0 +1,604 @@
+/*
+ * De Club van 100 — tokenlaag.
+ *
+ * Dit is het enige bestand in src/ waar letterlijke waardes mogen staan;
+ * scripts/check-tokens.mjs slaat het over. Overal anders komen kleur en maat
+ * via een tokennaam binnen.
+ *
+ * Het design system splitst de tokens over zeven bestanden (fonts, colors,
+ * typography, spacing, radius-depth, motion, base). Die zijn hier platgeslagen,
+ * in vier lagen:
+ *
+ *   1. Primitieven      — de rauwe waardes, één keer, in :root
+ *   2. Semantische laag — aliassen die per thema herbonden worden
+ *   3. @theme inline    — wat Tailwind tot utilities maakt
+ *   4. Basis            — reset, links, focus, beweging
+ *
+ * Laag 2 en 4 kunnen geen @theme-tokens zijn: een alias die onder
+ * [data-thema="licht"] iets anders betekent, en een CSS-reset, passen niet in
+ * een themablok. Ze staan daarom bewust buiten @theme, in ditzelfde bestand.
+ *
+ * Warm bruin dominant, met vuur als enige accent. De contrastverhoudingen
+ * achter deze waardes staan in het contrasthoofdstuk van design-system.md;
+ * wijk er niet van af zonder daar na te rekenen.
+ */
+
+/* ---------------------------------------------------------------------------
+   1. Primitieven
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* De achtergronden. Meer dan één lichte en één donkere per pagina blijft een
+     fout: de donkere familie telt er drie, maar een pagina kiest er één.
+
+     Gemeten uit de mockup van augustus 2026. bruin heeft inkt vervangen als
+     dominant vlak; inkt is daarmee niet weg maar teruggezet op wat de mockup
+     ermee doet — zwarte knoppen en zwarte vlakken óp het bruin. */
+  --bruin: #201410; /* dominant, het vlak waar de site op staat */
+  --inkt: #0b0b0b; /* het zwarte vlak op bruin, en de zwarte knop */
+  /* Verhoogd vlak op bruin: kaart, invoerveld, sticky balk.
+
+     Was #191919, een koud grijs dat naast bruin uit de toon valt. Dit is 94%
+     bruin met 6% cream — dezelfde stap omhoog die roet op inkt had (1,13 tegen
+     1,12), en krijt-stil houdt er nog 4,60:1. De mockup meet geen verhoogd
+     vlak; zie de aantekening in design-system.md. */
+  --roet: #2c1f1a;
+  --papier: #fafaf8; /* lichte pagina: voorwaarden, formulieren, print */
+  --mist: #e4e4e1; /* rustig vlak op papier: kaart, tabelrij, uitgeschakeld veld */
+
+  /* Cream en vuur, allebei gemeten uit de mockup.
+
+     cream is tekstaccent op donker en de knoptekst op de zwarte knop. vuur is
+     de enige accentkleur van het merk en is géén tekstkleur: 3,18:1 op bruin.
+     Alleen als vlak, en de tekst daarop is wit — 5,65:1. */
+  --cream: #e4cdb4;
+  --vuur: #c13111;
+
+  /* Tekst. krijt-stil mag nooit op papier of mist — dat haalt 2,9:1. */
+  --krijt: #ffffff;
+  --krijt-zacht: #c9c9c6;
+  --krijt-stil: #8a8a87;
+  --grafiet: #5c5c59;
+
+  /* Lijnen. De sterke variant is de enige die AA haalt voor een UI-rand. */
+  --lijn-donker: rgb(255 255 255 / 0.16);
+  --lijn-donker-sterk: rgb(255 255 255 / 0.34);
+  --lijn-licht: rgb(11 11 11 / 0.16);
+  --lijn-licht-sterk: rgb(11 11 11 / 0.38);
+
+  /* Sluiers. Verplicht onder elke tekst op foto.
+
+     Twee tonen. De donkere is bruin in plaats van inkt: dezelfde dekking, maar
+     op de nieuwe achtergrond — anders ligt er een koude vlek op een warm vlak.
+     Wit haalt er in het slechtste geval, een foto die op die plek wit is,
+     5,05:1. Cream haalt daar 3,29:1 en is dus geen tekstkleur op beeld.
+
+     De lichte is de bijna-sepia laag uit de hero van de mockup, voor donkere
+     tekst op een foto: cream op 72%. Inkt haalt daar in het slechtste geval
+     6,69:1 en in het beste 14,57:1. */
+  --sluier-donker: rgb(32 20 16 / 0.62);
+  --sluier-licht: rgb(228 205 180 / 0.72);
+  --sluier-onder: linear-gradient(
+    to top,
+    rgb(32 20 16 / 0.92) 0%,
+    rgb(32 20 16 / 0.72) 38%,
+    rgb(32 20 16 / 0) 100%
+  );
+  --sluier-zij: linear-gradient(
+    to right,
+    rgb(32 20 16 / 0.94) 0%,
+    rgb(32 20 16 / 0.7) 46%,
+    rgb(32 20 16 / 0) 100%
+  );
+
+  /* Functioneel, gedempt. Bestaat altijd in een paar: licht voor donkere
+     achtergrond, donker voor lichte. Geen tweede merkkleur. */
+  --fout: #e4665c;
+  --fout-donker: #a3231a;
+  --letop: #d9a441;
+  --letop-donker: #8a6412;
+  --goed: #7fb08a;
+  --goed-donker: #2f6b41;
+
+  /* De spatiëring van de typemachine. Hoort bij de familie en niet bij één
+     maat: een label, een knop en een uitgelichte regel staan er alle drie op.
+     Staat hier en niet in @theme, want @theme inline bakt zijn waardes in de
+     utility en stuurt ze niet als variabele uit — en deze wordt door drie
+     andere tokens gelezen. */
+  --machine-tracking: 0.14em;
+
+  /* Lijndikte en leesbreedte */
+  --lijn-dikte: 1px;
+  --lijn-dikte-sterk: 2px;
+  --maat-regel: 66ch; /* lopende tekst op licht */
+  --maat-regel-donker: 60ch; /* op zwart korter houden */
+  /* Breedte van het tellende getal: drie cijfers, zodat de kop niet wiebelt
+     terwijl hij van 0 naar 100 loopt. Werkt alleen samen met tabular-nums,
+     want anders is een cijfer niet zo breed als het volgende. */
+  --maat-teller: 3ch;
+  /* De hoogte van de kopbalk, zonder zijn onderrand. Eén waarde voor drie
+     lezers: de balk zelf, de landingshero die het eerste scherm min de balk
+     vult, en scroll-padding-top, die een gefocust element onder de sticky balk
+     vandaan houdt. Stond als min-h-18 in de layout en nergens anders, en dan
+     rekende de hero met 100svh en viel de tweede deur op een telefoon onder de
+     vouw. */
+  --hoogte-kopbalk: 4.5rem;
+
+  /* Beweging. Kort en zakelijk; geen bounce, geen veer, geen parallax. */
+  --duur-1: 120ms; /* kleur- en lijnwissel: hover, focus */
+  --duur-2: 180ms; /* knopindruk, kleine verschuiving */
+  --duur-3: 280ms; /* paneel, accordeon, dialoog */
+  --duur-4: 520ms; /* beeldonthulling, sectie in beeld */
+  --soepel-uit: cubic-bezier(0.2, 0, 0, 1);
+  --soepel-in: cubic-bezier(0.4, 0, 1, 1);
+  --soepel-inuit: cubic-bezier(0.65, 0, 0.35, 1);
+  --verschuif: 8px; /* standaard intree-afstand */
+  --indruk: 0.985; /* scale bij :active */
+
+  /*
+   * Inslag als karakter, Ploeg als ritme.
+   *
+   * Het gedrag van de bliksemschicht, vertaald naar timing: een element komt
+   * hard binnen, remt scherp af en staat dan stil. Kort en zeker, niet zacht en
+   * niet traag — maar nooit met z'n allen tegelijk. Binnen een sectie volgen ze
+   * elkaar op in een strak ritme.
+   *
+   * Deze zeven horen bij elkaar en bij src/styles/beweging.css. Zie het
+   * motion-hoofdstuk in design-system.md voor de reden achter elke waarde.
+   */
+  --inslag: cubic-bezier(0.12, 0.9, 0.1, 1); /* alles wat binnenkomt */
+  --duur-inslag-dekking: 340ms; /* de dekking, en het masker onder een kop */
+  --duur-inslag-hef: 420ms; /* de verplaatsing */
+  --ploeg: 70ms; /* tussen twee opeenvolgende elementen in één sectie */
+  --inslag-hef: 24px; /* de afstand, altijd van onder naar boven */
+  /* Hoe ver het masker onder de kop doorloopt. Een kop staat op een
+     regelhoogte onder 1, dus het masker knipt op precies 100% de staarten van
+     de p en de g af in het laatste beeldje. Deze marge houdt ze heel. */
+  --inslag-masker: 112%;
+  --zoom-beeld: 1.05; /* hover op een beeld dat ergens heen gaat */
+  --duur-zoom: 700ms; /* diezelfde zoom, trager dan de binnenkomst */
+  /* De aanloop van de opening: wat in de hero bij het laden al in beeld staat,
+     wacht dit even en komt dan alsnog binnen. Lang genoeg dat de pagina er
+     eerst staat, kort genoeg dat het geen wachten wordt. */
+  --aanloop: 300ms;
+
+  /*
+   * De haal: de ovaal om een woordgroep en het onderstreepje onder een kop.
+   *
+   * Dit is de enige beweging op de site die niet op --inslag loopt, en dat is
+   * met opzet. De inslag is een klap die scherp afremt en stilvalt; een haal is
+   * een hand die doorstreept. --haal loopt daarom aan het eind nog: het tweede
+   * stuurpunt ligt op 0.75, 0.6, dus de helling waarmee de curve bij 1 aankomt
+   * is 1,6 — de lijn is nog in beweging op het moment dat hij ophoudt. Precies
+   * het tegenovergestelde van --inslag, dat op 0.1, 1 uitdempt.
+   *
+   * De pauze is er omdat de twee dingen niet tegelijk mogen gebeuren. Het
+   * element komt eerst binnen in het gewone ritme; pas als het stilstaat, wordt
+   * de haal eromheen gezet. --haal-wacht is die binnenkomst plus de pauze, en
+   * telt op bij de plek van het element in de ploeg.
+   *
+   * Deze acht horen bij elkaar en bij src/styles/haal.css.
+   */
+  --haal: cubic-bezier(0.35, 0.08, 0.75, 0.6);
+  --haal-pauze: 200ms; /* stilte tussen binnenkomst en haal */
+  --haal-wacht: calc(var(--duur-inslag-hef) + var(--haal-pauze));
+  --duur-haal-ovaal: 450ms; /* de hele ronde, in één doorlopende haal */
+  --duur-haal-streep: 350ms; /* korter, want de streep is korter */
+  --duur-haal-pijl: 400ms; /* tussen de twee in: langer dan de streep, want
+                              er komt een punt achteraan, korter dan de ovaal */
+  /*
+   * De punt is een eigen streek en een korte: twee poten van een eenheid of
+   * tien, tegen een schacht van ruim dertig. Dezelfde duur zou hem traag
+   * laten aankomen na een schacht die er al staat. Hij begint precies waar de
+   * schacht ophoudt, dus samen duren ze 580ms.
+   */
+  --duur-haal-pijl-punt: 180ms;
+  /* Lijndikte, per vorm en in schermpixels: non-scaling-stroke tekent de lijn
+     in schermruimte, dus dit is de dikte die je echt ziet, op elke maat. De
+     ovaal is dikker dan de streep — de definitieve vormen uit de mockup. */
+  --haal-dikte-ovaal: 4px;
+  --haal-dikte-streep: 2.5px;
+  --haal-dikte-pijl: 2.5px; /* gelijk aan de streep: zelfde hand, zelfde pen */
+}
+
+/* ---------------------------------------------------------------------------
+   2. Semantische laag — donker is de standaard
+   --------------------------------------------------------------------------- */
+
+:root {
+  --vlak: var(--bruin);
+  --vlak-verhoogd: var(--roet);
+  --tekst: var(--krijt);
+  --tekst-zacht: var(--krijt-zacht);
+  --tekst-stil: var(--krijt-stil);
+  --lijn: var(--lijn-donker);
+  --lijn-sterk: var(--lijn-donker-sterk);
+  --tekst-fout: var(--fout);
+  --focus-ring: var(--krijt);
+
+  /* De sticky navigatie is de enige plek met transparantie en blur. Verder
+     nergens: glasmorfisme past niet bij een merk dat hard wil zijn. */
+  --vlak-nav: color-mix(in srgb, var(--vlak) 88%, transparent);
+
+  /*
+   * De offsetlaag onder de openingskop: de dubbellaagse kop uit de mockup.
+   *
+   * Eén harde verschuiving, geen vervaging — de laatste waarde is 0 en dat is
+   * het verschil tussen een tweede laag en een slagschaduw. De verschuiving
+   * staat in em, dus hij schaalt mee met een kop die van 3,5rem naar 8rem
+   * loopt; in px zou hij op een telefoon een dikke rand zijn en op een breed
+   * scherm een haarlijn.
+   *
+   * Hij staat hier in de semantische laag en niet bij de primitieven, want hij
+   * kantelt: zie de lichte tak hieronder.
+   */
+  --kop-dubbellaags: 0.045em 0.05em 0 var(--inkt);
+}
+
+/* Lichte omgeving. Zet [data-thema="licht"] op een sectie of op <html>. */
+[data-thema='licht'] {
+  --vlak: var(--papier);
+  --vlak-verhoogd: var(--mist);
+  --tekst: var(--inkt);
+  --tekst-zacht: var(--grafiet);
+  --tekst-stil: var(--grafiet); /* krijt-stil zakt op licht onder 3:1 */
+  --lijn: var(--lijn-licht);
+  --lijn-sterk: var(--lijn-licht-sterk);
+  --tekst-fout: var(--fout-donker);
+  --focus-ring: var(--inkt);
+
+  /*
+   * Geen offsetlaag op licht. De mockup kent dit effect alleen als witte kop op
+   * donker; op een lichte sectie is de tekst zelf al inkt en zou de offset
+   * onder zijn eigen kleur vallen — een tweede laag die je niet ziet. Hij
+   * vervalt daar dus, in plaats van een kleur te verzinnen die nergens gemeten
+   * is.
+   */
+  --kop-dubbellaags: none;
+}
+
+/*
+ * Twee vlakken waar geen gedempte tekst op kan staan.
+ *
+ * CREAM is licht, maar niet licht genoeg: grafiet haalt er 4,37:1 en zakt
+ * daarmee onder AA. Op een creamvlak blijft alleen de hoofdtekstkleur over —
+ * inkt haalt 12,83:1.
+ *
+ * BEELD is elke foto onder een sluier. De sluier garandeert één verhouding, en
+ * die is doorgerekend op de hoofdtekstkleur en op niets anders. Gemeten op de
+ * vlakke sluier, op een foto die op die plek wit is: krijt haalt 5,04:1, cream
+ * 3,29:1 en krijt-stil 1,46:1. Een bovenkop in krijt-stil op een foto was dus
+ * onleesbaar in het slechtste geval.
+ *
+ * Dat laatste stond er al vóór de restyle en is niet eerder opgevallen, omdat
+ * een meting die de sluier als dekkend vlak behandelt een veel te gunstig getal
+ * geeft. Een sluier is geen vlak maar een laag over onbekend beeld, en dan is
+ * het slechtste geval de enige die telt: de foto is geen token.
+ *
+ * In allebei de gevallen komt de hiërarchie uit maat en gewicht in plaats van
+ * uit kleur. De regel staat náást [data-thema="licht"] en niet in de plaats
+ * ervan: het thema is een thema, dit is een beperking van het vlak. Zo blijven
+ * de selectors die op data-thema staan — de schaduw op een klikbare kaart,
+ * bijvoorbeeld — gewoon werken.
+ */
+[data-vlak='cream'],
+[data-vlak='beeld'] {
+  --tekst-zacht: var(--tekst);
+  --tekst-stil: var(--tekst);
+}
+
+/* Diepte. Op zwart bestaat schaduw niet: diepte is een verhoogd vlak plus een
+   lijn. Op papier en mist mag wél een korte, lichte schaduw. */
+:root {
+  --diepte-0: none;
+  --diepte-1: inset 0 0 0 1px var(--lijn);
+  --diepte-2: inset 0 0 0 1px var(--lijn-sterk);
+  --diepte-3: 0 24px 64px rgb(0 0 0 / 0.72), inset 0 0 0 1px var(--lijn-sterk);
+}
+
+/* ---------------------------------------------------------------------------
+   3. @theme inline — wat Tailwind tot utilities maakt
+   --------------------------------------------------------------------------- */
+
+@theme inline {
+  /* Tailwinds eigen kleurenpalet staat uit. Zonder deze regel bestonden
+     bg-red-500, text-white en de rest van het standaardpalet gewoon naast de
+     tokens, en kwamen ze door beide kleurpoorten: check-tokens zoekt naar
+     hexwaarden en niet naar paletklassen, en check-klassen ziet alleen of een
+     klasse CSS oplevert — en dat deden ze. Nu bestaat er geen kleurutility die
+     niet hieronder staat. transparent en current zijn geen paletkleuren en
+     blijven werken. */
+  --color-*: initial;
+
+  /* Lettertype. Drie families, alle drie zelf gehost via @fontsource.
+
+     De brief noemt de dragende letter --font-basis. Hier heet hij --font-sans,
+     want Tailwind hangt daar zowel de font-sans-utility als de standaardfamilie
+     van de body aan; onder een andere naam zou font-sans stilletjes Tailwinds
+     eigen stack blijven en dat is precies de val die check-tokens moet vangen.
+
+     Machine en hand hebben géén standaardplek. Ze worden per element gezet en
+     de regels waar dat mag staan in design-system.md. */
+  --font-sans: 'Montserrat Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-machine: 'Special Elite', ui-monospace, 'Courier New', monospace;
+  --font-hand: 'Caveat', ui-rounded, cursive;
+
+  /* De spatiëring van de typemachine, als utility: tracking-machine. */
+  --tracking-machine: var(--machine-tracking);
+
+  /* Kleur: de achtergronden */
+  --color-bruin: var(--bruin);
+  --color-inkt: var(--inkt);
+  --color-roet: var(--roet);
+  --color-papier: var(--papier);
+  --color-mist: var(--mist);
+
+  /* Kleur: accent. cream mag tekst zijn, vuur nooit — zie het
+     contrasthoofdstuk van design-system.md. */
+  --color-cream: var(--cream);
+  --color-vuur: var(--vuur);
+
+  /* Kleur: tekst */
+  --color-krijt: var(--krijt);
+  --color-krijt-zacht: var(--krijt-zacht);
+  --color-krijt-stil: var(--krijt-stil);
+  --color-grafiet: var(--grafiet);
+
+  /* Kleur: functioneel */
+  --color-fout: var(--fout);
+  --color-fout-donker: var(--fout-donker);
+  --color-letop: var(--letop);
+  --color-letop-donker: var(--letop-donker);
+  --color-goed: var(--goed);
+  --color-goed-donker: var(--goed-donker);
+
+  /* Kleur: semantisch, volgt [data-thema] */
+  --color-vlak: var(--vlak);
+  --color-vlak-verhoogd: var(--vlak-verhoogd);
+  --color-tekst: var(--tekst);
+  --color-tekst-zacht: var(--tekst-zacht);
+  --color-tekst-stil: var(--tekst-stil);
+  --color-tekst-fout: var(--tekst-fout);
+  --color-lijn: var(--lijn);
+  --color-lijn-sterk: var(--lijn-sterk);
+  --color-vlak-nav: var(--vlak-nav);
+
+  /* Blur, alleen voor de sticky navigatie */
+  --blur-nav: 14px;
+
+  /* Typografische schaal. Montserrat heeft alleen een gewichtsas, dus de twee
+     displayniveaus dragen het verschil op gewicht en grootte — de breedte-as
+     van Archivo (wdth 118 en 112) bestaat hier niet meer en de twee regels die
+     hem zetten zijn uit laag 4 verdwenen. */
+  --text-display-xl: clamp(3.5rem, 9vw, 8rem);
+  --text-display-xl--line-height: 0.92;
+  --text-display-xl--letter-spacing: -0.03em;
+  --text-display-xl--font-weight: 800;
+  --text-display-l: clamp(2.5rem, 6vw, 5rem);
+  --text-display-l--line-height: 0.95;
+  --text-display-l--letter-spacing: -0.02em;
+  --text-display-l--font-weight: 800;
+  --text-kop-l: clamp(1.75rem, 3.2vw, 2.75rem);
+  --text-kop-l--line-height: 1.1;
+  --text-kop-l--letter-spacing: -0.01em;
+  --text-kop-l--font-weight: 700;
+  --text-kop-m: clamp(1.25rem, 2vw, 1.625rem);
+  --text-kop-m--line-height: 1.25;
+  --text-kop-m--font-weight: 700;
+  --text-kop-s: 1.125rem;
+  --text-kop-s--line-height: 1.35;
+  --text-kop-s--font-weight: 600;
+  --text-bovenkop: 0.875rem;
+  --text-bovenkop--line-height: 1.2;
+  --text-bovenkop--letter-spacing: var(--machine-tracking);
+  --text-bovenkop--font-weight: 600;
+  --text-lopend-l: clamp(1.0625rem, 1.4vw, 1.1875rem);
+  --text-lopend-l--line-height: 1.6;
+  --text-lopend-l--font-weight: 400;
+  --text-lopend-m: 1rem;
+  --text-lopend-m--line-height: 1.65;
+  --text-lopend-m--font-weight: 400;
+  --text-lopend-s: 0.875rem;
+  --text-lopend-s--line-height: 1.55;
+  --text-lopend-s--font-weight: 400;
+  --text-knop: 1.0625rem;
+  --text-knop--line-height: 1;
+  /* De knop staat sinds de restyle in de typemachine, dus op haar spatiëring
+     en niet meer op de 0,02em van de dragende letter. */
+  --text-knop--letter-spacing: var(--machine-tracking);
+  --text-knop--font-weight: 700;
+
+  /* Ruimte. Basiseenheid 4px, dus p-6 is 24px. */
+  --spacing: 4px;
+  --spacing-sectie-s: clamp(40px, 6vw, 64px);
+  --spacing-sectie-m: clamp(64px, 9vw, 112px);
+  --spacing-sectie-l: clamp(96px, 14vw, 176px);
+  --spacing-marge: clamp(20px, 5vw, 64px);
+
+  /* Container en breekpunten */
+  --container-smal: 768px;
+  --container-basis: 1280px;
+  --container-breed: 1600px;
+  --breakpoint-sm: 600px;
+  --breakpoint-md: 768px;
+  /* De grens waaronder de navigatie inklapt tot een hamburger. Het design
+     system noemt 900px; dat valt tussen md en lg en heeft dus een eigen naam
+     nodig. Gebruik de variant `nav:`. */
+  --breakpoint-nav: 900px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1600px;
+
+  /* Radius. Het merk is hard: 0 is de standaard, ronding is functioneel. */
+  --radius-none: 0;
+  --radius-veld: 2px; /* invoervelden, selects, kleine controls */
+  --radius-overlay: 4px; /* dialoog, tooltip, melding */
+  --radius-vol: 999px; /* ronde iconknop en telbadge */
+
+  /* Diepte */
+  --shadow-licht-1: 0 1px 2px rgb(11 11 11 / 0.1);
+  --shadow-licht-2: 0 8px 24px rgb(11 11 11 / 0.12);
+  --shadow-licht-3: 0 24px 56px rgb(11 11 11 / 0.18);
+  --shadow-dialoog: 0 24px 64px rgb(0 0 0 / 0.72);
+
+  /* Beweging */
+  --ease-uit: var(--soepel-uit);
+  --ease-in: var(--soepel-in);
+  --ease-inuit: var(--soepel-inuit);
+  --animate-duur-1: var(--duur-1);
+  --animate-duur-2: var(--duur-2);
+  --animate-duur-3: var(--duur-3);
+  --animate-duur-4: var(--duur-4);
+}
+
+/* ---------------------------------------------------------------------------
+   4. Basis
+   --------------------------------------------------------------------------- */
+
+/* In @layer base, niet ongelaagd. Ongelaagde CSS wint van Tailwinds
+   @layer utilities, en dan kan een utility als no-underline de linkstijl
+   hieronder niet meer overschrijven. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* De sticky kopbalk is 73px hoog. Zonder dit scrolde de browser een
+       gefocust element — bij shift+tab, of de sprong naar het eerste foute
+       veld — precies tegen de bovenrand, onder de balk, en een knop of veld van
+       44 tot 56px verdween daar helemaal (WCAG 2.4.11). De extra rem is lucht
+       voor de focusring. */
+    scroll-padding-top: calc(var(--hoogte-kopbalk) + var(--lijn-dikte) + 1rem);
+    /* De site is donker. Zonder color-scheme tekent de browser zijn eigen
+       onderdelen — schuifbalken, het automatisch invullen van een veld — licht
+       op een donkere pagina. */
+    color-scheme: dark;
+  }
+
+  [data-thema='licht'] {
+    color-scheme: light;
+  }
+
+  body {
+  margin: 0;
+  background: var(--vlak);
+  color: var(--tekst);
+  font-family: var(--font-sans);
+  font-size: var(--text-lopend-m);
+  line-height: 1.65;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  figure {
+    margin: 0;
+  }
+
+  /*
+   * Een sectie knipt horizontaal af wat eruit steekt, zonder schuifbalk en
+   * zonder de verticale as te raken (clip, geen hidden: hidden zou de andere
+   * as meenemen). De aanleiding is de haal: de ovaal is 138% zo breed als
+   * zijn woordgroep, en staat die woordgroep aan het eind van een regel, dan
+   * prikt de lijn de sectie uit — gemeten op /secties: 24px horizontale
+   * overloop op 375. Binnen de sectie mag hij alles; erbuiten wordt hij
+   * afgesneden in plaats van dat de hele pagina een schuifbalk krijgt.
+   */
+  main > section {
+    overflow-x: clip;
+  }
+
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  a {
+    color: var(--tekst);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: var(--lijn-dikte);
+    text-decoration-color: var(--lijn-sterk);
+    transition:
+      text-decoration-color var(--duur-1) var(--soepel-uit),
+      color var(--duur-1) var(--soepel-uit);
+  }
+
+  a:hover {
+    text-decoration-color: currentcolor;
+  }
+
+  a:active {
+    opacity: 0.7;
+  }
+
+  :focus-visible {
+    outline: var(--lijn-dikte-sterk) solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  ::selection {
+    background: var(--krijt);
+    color: var(--inkt);
+  }
+
+  [data-thema='licht'] ::selection {
+    background: var(--inkt);
+    color: var(--papier);
+  }
+}
+
+/* Bij gereduceerde beweging gaat alles naar 1ms en verdwijnt elke
+   verschuiving. Geldt globaal, niet per component. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duur-1: 1ms;
+    --duur-2: 1ms;
+    --duur-3: 1ms;
+    --duur-4: 1ms;
+    --verschuif: 0px;
+    --indruk: 1;
+
+    /* De scrollonthulling hangt hier niet aan: beweging.css staat helemaal
+       binnen (prefers-reduced-motion: no-preference) en het script zet zijn
+       vlagje niet. Deze zes zijn de tweede lijn — komt een van deze tokens
+       ooit ergens buiten dat mediablok te staan, dan blijft de uitkomst dat er
+       niets verschuift, niets wacht en niets zoomt. */
+    --duur-inslag-dekking: 1ms;
+    --duur-inslag-hef: 1ms;
+    --duur-zoom: 1ms;
+    --ploeg: 0ms;
+    --inslag-hef: 0px;
+    --zoom-beeld: 1;
+    --aanloop: 0ms;
+
+    /* De haal net zo. haal.css staat binnen dezelfde no-preference, dus de
+       ovaal staat er bij gereduceerde beweging meteen en volledig — hij tekent
+       zich niet sneller, hij tekent zich niet. */
+    --haal-pauze: 0ms;
+    --duur-haal-ovaal: 1ms;
+    --duur-haal-streep: 1ms;
+    --duur-haal-pijl: 1ms;
+    --duur-haal-pijl-punt: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

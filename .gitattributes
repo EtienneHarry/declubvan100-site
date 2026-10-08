@@ -1,0 +1,19 @@
+# Git normaliseert regeleindes naar LF in de repo, ongeacht het besturingssysteem
+# van wie er commit. Dat sluit aan op de eol=lf in .editorconfig.
+* text=auto eol=lf
+
+# SVG is tekst, ook al lijkt het een plaatje. Zo blijft de diff leesbaar.
+*.svg text eol=lf
+
+# Binair: nooit converteren, nooit als tekst diffen of samenvoegen.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

@@ -1,0 +1,46 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+
+/*
+ * De pagina voor een adres dat niet bestaat.
+ *
+ * Tot B16 was er geen. Vercel stuurde elk onbekend adres naar de functie, en
+ * die gaf Astro's eigen 404: Engels, zonder logo en navigatie, en met een
+ * inline stijlblok dat de CSP blokkeert — dus ook nog kaal. Na de verhuizing
+ * naar declubvan.nl komen er oude links van de vorige site binnen, en die
+ * landden daar allemaal.
+ *
+ * Vooraf gerenderd, dus de adapter serveert hem als bestand in plaats van een
+ * functie te starten, en check-csp en check-koppen lezen hem mee.
+ *
+ * DE TEKST IS ZO MIN MOGELIJK NIEUW. De kop is "Nog niks te zien hier." uit de
+ * microcopy-tabel van het design system, en de twee knoppen zijn de twee
+ * goedgekeurde hoofdknoppen. Alleen de zin eronder is nieuw geschreven; die
+ * wacht nog op het akkoord van de klant.
+ *
+ * noindex, en niet in de sitemap (GEEN_SITEMAP in astro.config.mjs).
+ */
+
+const secties = [
+  {
+    type: 'hero' as const,
+    achtergrond: 'bruin' as const,
+    ruimte: 'sectie-l' as const,
+    breedte: 'basis' as const,
+    kop: 'Nog niks te zien hier.',
+    tekst: 'Dit adres bestaat niet, of niet meer. Kies hieronder waar je heen wilt.',
+    knop: { label: 'Ik zoek personeel', href: '/opdrachtgevers' },
+    tweedeKnop: { label: 'Ik wil bij jullie werken', href: '/de-100' },
+    schicht: true,
+  },
+];
+---
+
+<Basis
+  titel="Niet gevonden — De Club van 100"
+  beschrijving="Deze pagina bestaat niet. Kies waar je heen wilt."
+  noindex
+>
+  <SectieLijst secties={secties} />
+</Basis>

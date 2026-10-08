@@ -1,0 +1,58 @@
+{
+  "/beeld/bar-pouring.jpg": {
+    "origineel": 1024,
+    "varianten": [
+      640,
+      1024
+    ]
+  },
+  "/beeld/de-100/secties/2/value/items/0/beeld/value/bron.jpeg": {
+    "origineel": 1333,
+    "varianten": [
+      640,
+      1024,
+      1333
+    ]
+  },
+  "/beeld/de-100/secties/2/value/items/1/beeld/value/bron.jpg": {
+    "origineel": 1333,
+    "varianten": [
+      640,
+      1024,
+      1333
+    ]
+  },
+  "/beeld/de-100/secties/2/value/items/2/beeld/value/bron.jpg": {
+    "origineel": 1333,
+    "varianten": [
+      640,
+      1024,
+      1333
+    ]
+  },
+  "/beeld/home/Jor Sep achter.jpg": {
+    "origineel": 1991,
+    "varianten": [
+      640,
+      1024,
+      1600,
+      1991
+    ]
+  },
+  "/beeld/ploeg-drie.jpg": {
+    "origineel": 1170,
+    "varianten": [
+      640,
+      1024,
+      1170
+    ]
+  },
+  "/beeld/staff-wanted-web.jpg": {
+    "origineel": 1333,
+    "varianten": [
+      640,
+      1024,
+      1333
+    ]
+  }
+}

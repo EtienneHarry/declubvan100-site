@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /secties
+Disallow: /contact/bedankt
+Disallow: /contact/verzenden
+Disallow: /keystatic
+Disallow: /api/keystatic
+
+Sitemap: https://declubvan.nl/sitemap-index.xml

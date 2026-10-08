@@ -1,0 +1,267 @@
+/*
+ * De haal — de ovaal, het onderstreepje en de pijl.
+ *
+ * Met de hand getekende vormen: de ovaal en de streep uit de mockup, de pijl
+ * naast de belangrijkste knop kwam later. Ze horen bij dezelfde
+ * familie als de bliksemschicht: één beweging, geen constructie. Wat ze delen
+ * staat hier; wat ze onderscheidt is hun pad en hun duur, en dat staat in het
+ * component zelf.
+ *
+ * Een haal bestaat uit drie dingen die los van elkaar kunnen falen:
+ *
+ *   1. de pasvorm    — hij verschijnt alleen als de tekst op één regel past
+ *   2. de lijn       — kleur en dikte, uit de tokenlaag
+ *   3. het tekenen   — stroke-dashoffset van de schermlengte naar 0
+ *
+ * Alleen het derde is beweging. Eén en twee staan daarom buiten het
+ * no-preference-blok: wie gereduceerde beweging vraagt, krijgt de ovaal wél —
+ * volledig getekend en meteen.
+ *
+ * HET TEKENEN IS EEN TRANSITIE EN GEEN KEYFRAME, EN DE DASH KOMT UIT EEN
+ * ATTRIBUUT. Dat was eerst anders: een gedeelde keyframe van 100 naar 0 op een
+ * pad dat met pathLength="100" genormaliseerd was. Chrome bleek pathLength te
+ * negeren zodra vector-effect="non-scaling-stroke" op het pad staat — de dash
+ * wordt dan in schérmruimte gerekend, dus "100" was geen heel pad maar 100
+ * schermpixels. Gemeten met isPointInStroke: gaten in de lijn op 45 tot 80% van
+ * het pad, en een tekenanimatie die het patroon maar 100px verschoof en dus
+ * onzichtbaar was.
+ *
+ * Daarom meet HaalScript nu de echte schermlengte en zet die als
+ * stroke-dasharray en stroke-dashoffset op het pad. Dat zijn
+ * presentatie-attributen en geen style-attribuut, dus de CSP heeft er niets
+ * over te zeggen. De regel hieronder zet de offset op 0 zodra de waarnemer het
+ * element loslaat, en de transitie tekent de lijn — de wachttijd en de duur
+ * komen uit de tokens, precies als eerst.
+ *
+ * Met gereduceerde beweging zet het script de pasvorm wél maar de
+ * dash-attributen niet, want dan staat het vlagje data-beweging er niet. De
+ * lijn is dan dicht: volledig getekend, meteen. Zonder script is er helemaal
+ * geen haal — de svg wacht op de pasvorm, zie hieronder.
+ *
+ * WAAROM DE LIJN VERBORGEN BEGINT. Een ovaal om een woordgroep die over twee
+ * regels breekt, wordt een uitgerekte ellips over twee regels heen. Dat is niet
+ * uit te rekenen tijdens het bouwen: het hangt aan de vensterbreedte, aan het
+ * lettertype dat al dan niet geladen is, en aan de lengte van de tekst die de
+ * redacteur invult. HaalScript.astro meet het en zet data-haal-staat="past".
+ *
+ * De prijs is dat er zonder JavaScript geen ovaal staat. Dat is de goede kant
+ * om op te falen: de haal is decoratief en staat op aria-hidden, dus er gaat
+ * geen betekenis verloren — en een ontbrekende versiering is beter dan een
+ * kapotte. Bij gereduceerde beweging draait het script gewoon; dat meet alleen,
+ * het beweegt niets.
+ */
+
+/*
+ * De svg bestaat pas als de pasvorm rond is. Niet alleen de lijn onzichtbaar
+ * (dat stond er al), maar het hele vlak uit de layout: de definitieve ovaal
+ * is 138% zo breed als zijn tekst, en om een woordgroep die over meerdere
+ * regels breekt werd dat een onzichtbaar vlak dat 90px buiten het venster
+ * stak — gemeten op /secties op 768, een horizontale schuifbalk zonder dat er
+ * iets te zien was. display en geen visibility, want een verborgen vlak telt
+ * nog steeds mee in de scrollbreedte.
+ *
+ * HaalScript zet daarom eerst de pasvorm en meet pas daarna de schermlengte:
+ * een svg op display none heeft geen schermmatrix om over te meten.
+ */
+[data-haal] svg {
+  display: none;
+}
+
+[data-haal][data-haal-staat='past'] svg {
+  display: block;
+}
+
+[data-haal] [data-haal-lijn] {
+  visibility: hidden;
+}
+
+/*
+ * Kleur en dikte, per vorm — en sinds de definitieve vormen liggen de lijnen
+ * áchter de tekst (z-index 0 tegen 1 op de tekst-span), dus waar een haal een
+ * letter raakt wordt de lijn onderbroken en blijft de letter scherp.
+ *
+ * De ovaal staat op vuur. De contrasteis voor tekst geldt niet — de haal is
+ * decoratief en staat op aria-hidden — maar de lijn moet zichtbaar zijn, en
+ * dat haalt vuur op elk vlak: 3,18:1 op bruin en 5,41:1 op papier, boven de
+ * 3:1 die WCAG aan niet-tekstuele onderdelen stelt. Eén vaste kleur en geen
+ * thema-alias, want het accent kantelt niet mee met licht en donker.
+ *
+ * De streep staat op papier, niet op vuur: hij staat onder een grote witte
+ * kop en een tweede kleur maakt het daar onrustig. Dat hij achter de tekst
+ * ligt en onder de regel hangt, houdt hem uit de letters.
+ */
+[data-haal='ovaal'] [data-haal-lijn] {
+  stroke: var(--vuur);
+  stroke-width: var(--haal-dikte-ovaal);
+}
+
+[data-haal='streep'] [data-haal-lijn] {
+  stroke: var(--papier);
+  stroke-width: var(--haal-dikte-streep);
+}
+
+/*
+ * De pijl staat op papier en niet op vuur, en dat is een keuze tegen het
+ * gevoel in. Vuur zou de familie zijn — het is de kleur van de ovaal — maar de
+ * pijl wijst naar een knop die zélf vuur is. Twee keer dezelfde kleur naast
+ * elkaar laat de pijl met de knop concurreren in plaats van ernaar wijzen, en
+ * dan is de aanwijzing net zo luid als het aangewezene.
+ *
+ * Op papier is hij een handgeschreven notitie naast de knop: zichtbaar, maar
+ * duidelijk van een andere orde. Zelfde afweging als bij de streep, die om
+ * dezelfde reden niet op vuur staat.
+ *
+ * Net als de streep heeft hij geen lichte tak. Op een papieren sectie is de
+ * lijn onzichtbaar, en dat mag: een haal is decoratief en staat op aria-hidden,
+ * dus er gaat geen betekenis verloren. Er staat vandaag ook geen knop op licht.
+ */
+/*
+ * De pijl rekent zijn dash in eenheden van pathLength en niet in pixels. Beide
+ * paden dragen pathLength="1", dus een dasharray van 1 is precies het hele pad
+ * — hoe lang het werkelijk is doet niet ter zake, en HaalScript slaat ze
+ * daarom over.
+ *
+ * Met offset 0 staat de lijn dicht. Dat is met opzet de begintoestand: bij
+ * gereduceerde beweging staat de pijl er volledig. Het verbergen hangt
+ * hieronder aan het scriptvlagje, net als bij de rest van de beweging.
+ *
+ * Zonder JavaScript staat er geen pijl. Niet door de lijn, maar door het vlak:
+ * [data-haal] svg staat bovenaan op display none tot HaalScript de pasvorm op
+ * 'past' zet, en dat geldt voor de pijl net zo goed als voor de ovaal. Voor de
+ * pijl is dat dezelfde afweging — decoratief, aria-hidden, de knop ernaast
+ * staat er gewoon.
+ */
+[data-haal='pijl'] [data-haal-lijn] {
+  stroke: var(--papier);
+  stroke-width: var(--haal-dikte-pijl);
+  stroke-dasharray: 1;
+}
+
+[data-haal][data-haal-staat='past'] [data-haal-lijn] {
+  visibility: visible;
+}
+
+/*
+ * Op papier geen haal. De pasvorm is op het scherm gemeten en een afdruk heeft
+ * een andere regelbreedte: een ovaal die daar om een gebroken woordgroep komt
+ * te staan, wijst nergens meer naar. De haal is decoratief en staat op
+ * aria-hidden, dus er gaat niets verloren — de tekst eronder blijft staan.
+ *
+ * Twee selectors, en de tweede is geen herhaling: hij heeft dezelfde
+ * specificiteit als de 'past'-regel hierboven en wint dus op volgorde.
+ */
+@media print {
+  [data-haal] svg,
+  [data-haal][data-haal-staat='past'] svg {
+    display: none;
+  }
+}
+
+/*
+ * Op `screen`, om dezelfde reden als de scrollonthulling: een voorkeur geldt
+ * ook bij afdrukken. Zie punt 4 bovenin beweging.css.
+ */
+@media screen and (prefers-reduced-motion: no-preference) {
+  /*
+   * DE TRANSITIE HANGT AAN 'loopt' EN NIET AAN DE HAAL ZELF. Dat is geen
+   * netheid maar een reparatie, en het is precies de regel die de bug had.
+   *
+   * Ze stond eerst op [data-onthul='haal'] [data-haal-lijn], dus zodra
+   * OnthulScript data-beweging="aan" op <html> had gezet, leefde de transitie
+   * al vóórdat HaalScript zijn beginwaarde schreef. En die beginwaarde is een
+   * wijziging: stroke-dashoffset gaat van zijn initiële 0 naar de gemeten
+   * lengte. Met een levende transitie ertussen animeert de browser díé
+   * wijziging — de lijn liep dus van volledig getekend naar volledig gewist,
+   * de omgekeerde kant op. Gemeten op /opdrachtgevers: attribuut 919, berekende
+   * waarde 0px, en een CSSTransition met keyframes 0px → 919px.
+   *
+   * OnthulScript staat vóór HaalScript in de layout, dus dat trof elke haal die
+   * onder de vouw begint — alle drie op deze site.
+   *
+   * Nu leeft er niets tot de waarnemer loslaat. HaalScript schrijft zijn
+   * beginwaarde op een element zonder transitie (transition-duration is dan de
+   * initiële 0s) en die landt dus meteen; pas met 'loopt' verschijnen de
+   * transitie en de 0 samen, en dan is er één overgang, de goede kant op.
+   * Daarmee doet de volgorde van de twee scripts niet meer ter zake, en dat is
+   * het punt: een reparatie die aan een volgorde hangt, gaat stuk zodra iemand
+   * die volgorde verzet zonder te weten waarom hij zo was.
+   *
+   * De drie regels hieronder staan alle drie op 'loopt' en dat moet: zet je
+   * alleen transition-duration op een element zonder transition-property, dan
+   * staat die property op zijn initiële `all` en animeert een volgende
+   * kleurwijziging mee.
+   *
+   * De vertraging is de plek van het element in de ploeg plus --haal-wacht.
+   * Die eerste helft komt via --stap-vertraging binnen: beweging.css zet die
+   * variabele op elk element met een stap, en een custom property erft, dus de
+   * haal binnen een kop op stap 2 leest vanzelf 2 × --ploeg. Zonder die
+   * doorgifte zou elke haal een eigen stap-prop nodig hebben door alle
+   * sectietypes heen.
+   *
+   * Een CSS-declaratie wint van een presentatie-attribuut, dus de 0 hier
+   * verslaat de beginwaarde die het script op het pad zette.
+   */
+  [data-beweging='aan'] [data-onthul='haal'][data-onthul-staat='loopt'] [data-haal-lijn] {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset var(--duur-haal-streep) var(--haal)
+      calc(var(--stap-vertraging, 0ms) + var(--haal-wacht) + var(--haal-na, 0ms));
+  }
+
+  [data-beweging='aan'] [data-haal='ovaal'][data-onthul-staat='loopt'] [data-haal-lijn] {
+    transition-duration: var(--duur-haal-ovaal);
+  }
+
+  /*
+   * De verborgen begintoestand van de pijl, en die hangt aan het vlagje. Zonder
+   * vlagje blijft de offset 0: bij gereduceerde beweging staat de pijl er dus
+   * gewoon zodra de pasvorm hem zichtbaar maakt, en zonder script is er geen
+   * pijl om te verbergen (zie boven). De :not() zorgt dat hij alleen
+   * verborgen begint zolang de waarnemer hem nog niet heeft losgelaten; daarna
+   * wint de 0 uit de regel hierboven.
+   */
+  [data-beweging='aan'] [data-haal='pijl']:not([data-onthul-staat]) [data-haal-lijn] {
+    stroke-dashoffset: 1;
+  }
+
+  [data-beweging='aan'] [data-haal='pijl'][data-onthul-staat='loopt'] [data-haal-lijn] {
+    transition-duration: var(--duur-haal-pijl);
+  }
+
+  /*
+   * De punt komt ná de schacht. --haal-na wordt opgeteld bij de vertraging in
+   * de twee regels hierboven, dus hij hoeft hier alleen gezet te worden en niet
+   * elke berekening herhaald. Zo telt ook de entree-variant hem vanzelf mee.
+   */
+  [data-beweging='aan'] [data-haal='pijl'] [data-haal-lijn='punt'] {
+    --haal-na: var(--duur-haal-pijl);
+  }
+
+  [data-beweging='aan'] [data-haal='pijl'][data-onthul-staat='loopt'] [data-haal-lijn='punt'] {
+    transition-duration: var(--duur-haal-pijl-punt);
+  }
+
+  /* Een haal in de opening wacht de aanloop mee af, net als de kop eromheen. */
+  [data-beweging='aan']
+    [data-onthul-entree]
+    [data-onthul='haal'][data-onthul-staat='loopt']
+    [data-haal-lijn] {
+    transition-delay: calc(
+      var(--stap-vertraging, 0ms) + var(--aanloop) + var(--haal-wacht) + var(--haal-na, 0ms)
+    );
+  }
+
+  /*
+   * Stond al in beeld bij het laden. Geen tekening en geen wachttijd: de haal
+   * staat er dan gewoon, net als de kop waar hij omheen zit. HaalScript zet de
+   * dasharray wel op elke passende gemeten haal (de pijl, met pathLength, slaat
+   * het over), ook op deze, maar de beginoffset alleen zolang er nog geen
+   * data-onthul-staat is — en OnthulScript, dat eerder in de layout staat,
+   * heeft 'klaar' dan al gezet. De offset blijft
+   * dus op zijn initiële 0. Deze regel zet hem daar nog eens expliciet op en
+   * schakelt de transitie uit, voor het geval die volgorde ooit omdraait.
+   */
+  [data-beweging='aan'] [data-onthul='haal'][data-onthul-staat='klaar'] [data-haal-lijn] {
+    stroke-dashoffset: 0;
+    transition: none;
+  }
+}

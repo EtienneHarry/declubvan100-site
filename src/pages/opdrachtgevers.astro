@@ -1,0 +1,30 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+import { leesPagina } from '../lib/pagina';
+
+/*
+ * Opdrachtgevers.
+ *
+ * De inhoud komt uit het CMS: src/content/paginas/opdrachtgevers.yaml.
+ *
+ * Toon: rustig en zeker. Jij hebt een avond te draaien en wij zorgen dat er
+ * niets misgaat. Nadruk op wat je niet hoeft te regelen; geen enthousiasme dat
+ * om een gunst vraagt.
+ *
+ * Er staat geen foto op deze pagina. De opening is een hero zonder beeld,
+ * daarna rijke tekst, het inhuren-formulier, de citaten en de veelgestelde
+ * vragen. De beeld-tekst met de foto bediening-buiten is er in c890b1e op
+ * verzoek van de klant uitgegaan, en die foto staat niet meer in public/beeld.
+ *
+ * Wie er weer een foto op zet: dat beeld was het lichtste dat er lag en haalde
+ * witte tekst niet met de sluier van 62%. Daarom stond het in een beeld-tekst,
+ * waar de tekst ernaast staat en niet erop.
+ */
+
+const { titel, beschrijving, secties } = await leesPagina('opdrachtgevers');
+---
+
+<Basis titel={titel} beschrijving={beschrijving}>
+  <SectieLijst secties={secties} />
+</Basis>

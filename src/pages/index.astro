@@ -1,0 +1,31 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+import { leesPagina } from '../lib/pagina';
+
+/*
+ * Home.
+ *
+ * De inhoud komt uit het CMS: src/content/paginas/home.yaml.
+ *
+ * Sinds B9 een landingspagina: de hero uit de mockup en daaronder één oproep
+ * met de kernpropositie, verder niets. Er staat geen splitscreen meer op.
+ *
+ * De twee deuren van de site zijn nu knoppen. In de hero "Aanmelden" (naar
+ * /de-100) en "Inhuren" (naar /opdrachtgevers); in de oproep dezelfde twee
+ * richtingen met de knopteksten uit de microcopy-tabel — "Ik zoek personeel"
+ * en "Ik wil bij jullie werken", niet "Meer informatie" en "Solliciteer nu" —
+ * en de pijl naast de eerste.
+ *
+ * Het sectietype splitscreen bestaat nog en kan in het CMS worden toegevoegd.
+ * De foto's van zijn deuren staan dan niet in het CMS maar in
+ * src/lib/pagina.ts: welke foto bij welke deur hoort is een ontwerpbeslissing
+ * en geen redactionele.
+ */
+
+const { titel, beschrijving, secties } = await leesPagina('home');
+---
+
+<Basis titel={titel} beschrijving={beschrijving}>
+  <SectieLijst secties={secties} />
+</Basis>

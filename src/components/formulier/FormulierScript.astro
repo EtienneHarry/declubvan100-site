@@ -1,0 +1,192 @@
+---
+/*
+ * Wat het formulier erbij krijgt zodra er JavaScript is.
+ *
+ * ZONDER DIT SCRIPT WERKT HET FORMULIER GEWOON. Een <form method="post"> post
+ * naar /contact/verzenden, de server controleert en stuurt je door, en de
+ * browser houdt met `required` en `type="email"` zelf een leeg of onvolledig
+ * veld tegen — in de taal van de bezoeker. Dat is het vangnet.
+ *
+ * Wat dit script daar bovenop doet:
+ *
+ *   1. De tijdstempel. /contact wordt vooraf gerenderd, dus een tijdstempel in
+ *      de HTML is de bouwtijd en niet de laadtijd. Alleen de browser weet
+ *      wanneer deze bezoeker de pagina opende. Blijft hij leeg, dan laat de
+ *      route de inzending door — wie geen JavaScript heeft is geen bot.
+ *
+ *   2. De validatie overnemen. `noValidate` wordt hier gezet en niet in de HTML:
+ *      zonder script moet de ingebouwde controle juist wel werken. Met script
+ *      nemen we hem over, zodat de melding op dezelfde plek staat als een
+ *      serverfout — onder het veld, gekoppeld met aria-describedby — in plaats
+ *      van in een ballonnetje dat bij de eerste klik verdwijnt.
+ *
+ *   3. De bezig-stand. Tussen klikken en de volgende pagina zit een moment
+ *      waarop er niets gebeurt. De knop zegt dan wat er aan de hand is en gaat
+ *      op slot, zodat niemand twee keer verstuurt.
+ *
+ *   4. De focus naar de eerste fout, en die aankondigen. Na een afgekeurde
+ *      inzending staat de bezoeker bovenaan een pagina die er hetzelfde uitziet
+ *      als daarvoor.
+ *
+ * DE TEKSTEN KOMEN UIT src/lib/formulier-velden.ts, hetzelfde bestand dat de
+ * server leest. Stonden ze hier apart, dan zegt de browser iets anders dan de
+ * server zodra er een wordt aangepast.
+ *
+ * Dit script staat in een .astro-bestand en niet in een .tsx. Astro bundelt het
+ * dan tot een gewoon bestand; een script in een React-component belandt inline
+ * in de HTML en loopt op `script-src 'self'` stuk.
+ */
+---
+
+<script>
+  import { MELDING, VELDEN, type Variant } from '../../lib/formulier-velden';
+
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  /** Toont of verbergt de foutregel die onder elk veld al klaarstaat. */
+  function zetFout(formulier: HTMLFormElement, naam: string, tekst: string) {
+    const regel = formulier.querySelector<HTMLElement>('[data-veld-fout="' + naam + '"]');
+    const invoer = formulier.elements.namedItem(naam);
+
+    if (regel) {
+      regel.textContent = tekst;
+      regel.classList.toggle('hidden', tekst === '');
+    }
+
+    if (invoer instanceof HTMLInputElement || invoer instanceof HTMLTextAreaElement) {
+      if (tekst === '' || !regel) {
+        invoer.removeAttribute('aria-invalid');
+        invoer.removeAttribute('aria-describedby');
+      } else {
+        // De id van de regel zelf: die draagt het voorvoegsel van de variant.
+        invoer.setAttribute('aria-invalid', 'true');
+        invoer.setAttribute('aria-describedby', regel.id);
+      }
+    }
+  }
+
+  /*
+   * Dezelfde regels als op de server, in dezelfde volgorde: leeg, te lang, en
+   * voor een mailadres of het ergens op lijkt. Wat hier doorkomt, komt daar ook
+   * door — en wat hier afvalt, zou daar ook afvallen.
+   */
+  function controleerVeld(variant: Variant, naam: string, waarde: string): string {
+    const veld = VELDEN[variant].find((v) => v.naam === naam);
+    if (!veld) return '';
+
+    const kaal = waarde.trim();
+
+    if (kaal === '') return veld.optioneel ? '' : (veld.leegFout ?? '');
+    if (kaal.length > veld.max) return MELDING.teLang;
+    if (veld.soort === 'email' && !EMAIL.test(kaal)) return MELDING.emailOngeldig;
+
+    return '';
+  }
+
+  for (const formulier of document.querySelectorAll<HTMLFormElement>('[data-formulier]')) {
+    const variant: Variant = formulier.dataset.formulier === 'inhuren' ? 'inhuren' : 'aanmelden';
+    const status = formulier.querySelector<HTMLElement>('[data-formulier-status]');
+    const knop = formulier.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const knopLabel = knop?.querySelector('span') ?? null;
+    const gewoonLabel = knopLabel?.textContent ?? '';
+    const bezigTekst = formulier.querySelector<HTMLElement>('[data-formulier-bezig-tekst]');
+
+    /*
+     * Terug via de terugknop. De browser zet de pagina dan uit de
+     * back/forward-cache terug zoals hij was — mét de knop op slot en
+     * "Even versturen…" erop. Wie na de bedankpagina terugbladert om nog iets te
+     * sturen, stond voor een knop die niets meer deed. Een nieuwe tijdstempel
+     * hoort er ook bij: de oude is van het eerste bezoek.
+     */
+    window.addEventListener('pageshow', (gebeurtenis) => {
+      if (!gebeurtenis.persisted) return;
+      if (knop) knop.disabled = false;
+      if (knopLabel) knopLabel.textContent = gewoonLabel;
+      if (status) status.textContent = '';
+      for (const veld of formulier.querySelectorAll<HTMLInputElement>('[data-formulier-geladen]')) {
+        veld.value = String(Date.now());
+      }
+    });
+
+    // 1. De tijdstempel.
+    for (const veld of formulier.querySelectorAll<HTMLInputElement>('[data-formulier-geladen]')) {
+      veld.value = String(Date.now());
+    }
+
+    // 2. De ingebouwde validatie overnemen.
+    formulier.noValidate = true;
+
+    /*
+     * Een veld dat al is afgekeurd, controleren we opnieuw zodra de bezoeker het
+     * verlaat. Zo verdwijnt een melding die hij net heeft opgelost, in plaats
+     * van te blijven staan tot hij nog een keer op verzenden drukt.
+     *
+     * Alleen bij blur en niet bij elke toetsaanslag: meetypen met iemand die nog
+     * bezig is, levert meldingen op over een veld dat nog niet af is.
+     */
+    for (const veld of VELDEN[variant]) {
+      const invoer = formulier.elements.namedItem(veld.naam);
+      if (!(invoer instanceof HTMLInputElement || invoer instanceof HTMLTextAreaElement)) continue;
+
+      invoer.addEventListener('blur', () => {
+        if (invoer.getAttribute('aria-invalid') !== 'true') return;
+        zetFout(formulier, veld.naam, controleerVeld(variant, veld.naam, invoer.value));
+      });
+    }
+
+    formulier.addEventListener('submit', (gebeurtenis) => {
+      let eerste: HTMLElement | undefined;
+      let aantal = 0;
+
+      for (const veld of VELDEN[variant]) {
+        const invoer = formulier.elements.namedItem(veld.naam);
+        if (!(invoer instanceof HTMLInputElement || invoer instanceof HTMLTextAreaElement)) continue;
+
+        const fout = controleerVeld(variant, veld.naam, invoer.value);
+        zetFout(formulier, veld.naam, fout);
+
+        if (fout !== '') {
+          aantal++;
+          if (!eerste) eerste = invoer;
+        }
+      }
+
+      if (eerste) {
+        gebeurtenis.preventDefault();
+
+        // Leeg is de regel visueel verborgen (empty:sr-only); met tekst staat hij er.
+        if (status) {
+          status.textContent =
+            aantal === 1 ? 'Er mist nog iets.' : 'Er missen nog ' + aantal + ' dingen.';
+        }
+
+        eerste.focus();
+        return;
+      }
+
+      // 3. De bezig-stand. De browser gaat hierna zelf versturen.
+      if (status) status.textContent = MELDING.bezig;
+
+      if (knop) {
+        if (knopLabel && bezigTekst) knopLabel.textContent = bezigTekst.textContent;
+        knop.disabled = true;
+      }
+    });
+
+    /*
+     * 4. Na een afgekeurde inzending: de focus naar het eerste veld dat nog
+     *    aandacht vraagt. De route heeft die meldingen al gerenderd, dus hier
+     *    valt alleen te zoeken welke er zichtbaar is.
+     *
+     *    De statusregel wordt niet opnieuw gevuld — daar staat de tekst van de
+     *    server al in, en die is specifieker dan wat hier te bedenken valt.
+     */
+    const zichtbareFout = formulier.querySelector<HTMLElement>('[data-veld-fout]:not(.hidden)');
+
+    if (zichtbareFout) {
+      const naam = zichtbareFout.dataset.veldFout;
+      const invoer = naam ? formulier.elements.namedItem(naam) : null;
+      if (invoer instanceof HTMLElement) invoer.focus();
+    }
+  }
+</script>

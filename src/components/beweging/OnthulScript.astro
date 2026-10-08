@@ -1,0 +1,207 @@
+---
+/**
+ * De scrollonthulling: één waarnemer voor de hele pagina.
+ *
+ * Apart Astro-bestand, net als TellerScript: een <script> in een React-
+ * component belandt inline in de HTML en loopt op `script-src 'self'` stuk.
+ * Hier maakt Astro er een gewoon bestand van.
+ *
+ * Staat in de layout en dus op elke pagina. Zonder [data-onthul] in beeld doet
+ * hij niets, dus er valt niets uit te zoeken per pagina.
+ *
+ * Wat hij doet staat in src/styles/beweging.css; dit bestand zet alleen de twee
+ * attributen waar die CSS op wacht.
+ */
+---
+
+<script>
+  const rustig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const elementen = Array.from(document.querySelectorAll<HTMLElement>('[data-onthul]'));
+
+  /*
+   * Gereduceerde beweging: het vlagje gaat er niet op en daarmee blijft elke
+   * regel in beweging.css buiten werking. Alles staat er dan meteen — niet
+   * "heel snel onthuld", want dat is precies wat deze bezoeker niet vraagt.
+   */
+  if (!rustig && elementen.length > 0) {
+    const hoogte = window.innerHeight || document.documentElement.clientHeight;
+
+    /**
+     * Staat dit element genoeg in beeld? Een vijfde van zijn hoogte, dezelfde
+     * drempel als de waarnemer hieronder.
+     *
+     * De tweede tak is voor een element dat zelf hoger is dan het venster — een
+     * deur met een lange kop op een telefoon. Dat haalt die vijfde nooit, en
+     * zonder deze tak zou het dus nooit onthuld worden.
+     */
+    function genoegInBeeld(kader: DOMRect) {
+      if (kader.bottom <= 0 || kader.top >= hoogte) return false;
+      if (kader.height > hoogte) return true;
+
+      const zichtbaar = Math.min(kader.bottom, hoogte) - Math.max(kader.top, 0);
+      return kader.height > 0 && zichtbaar / kader.height >= 0.2;
+    }
+
+    /*
+     * Eerst alles meten, dan pas iets zetten. Andersom wisselt elke meting af
+     * met een stijlwijziging en rekent de browser de hele pagina per element
+     * opnieuw door.
+     */
+    const kaders = elementen.map((element) => element.getBoundingClientRect());
+
+    /*
+     * Wat al in beeld staat, is meteen klaar — en dat wordt gezet vóór het
+     * vlagje op <html>. In die volgorde krijgt zo'n element de verborgen
+     * begintoestand nooit te zien: op het moment dat beweging.css gaat gelden,
+     * staat er al "klaar" op.
+     */
+    const wachtenden: HTMLElement[] = [];
+
+    elementen.forEach((element, index) => {
+      const kader = kaders[index];
+
+      /*
+       * De opening is de uitzondering op "wat er al staat, staat er meteen".
+       * Elementen binnen [data-onthul-entree] gaan naar de waarnemer, ook al
+       * staan ze in beeld: die vuurt voor een zichtbaar element direct, dus ze
+       * krijgen 'loopt' en animeren — met de --aanloop die beweging.css er
+       * voor deze groep bij optelt, zodat de pagina eerst even staat.
+       */
+      if (kader && genoegInBeeld(kader) && !element.closest('[data-onthul-entree]')) {
+        element.dataset.onthulStaat = 'klaar';
+      } else {
+        wachtenden.push(element);
+      }
+    });
+
+    document.documentElement.dataset.beweging = 'aan';
+
+    /*
+     * Eén keer per element: hij laat los zodra hij is afgegaan, dus
+     * terugscrollen speelt niets opnieuw af.
+     *
+     * Twee drempels. 0.2 is de gewone; 0 is er voor het element dat hoger is
+     * dan het venster en die 0.2 dus nooit haalt — zonder dat tweede getal
+     * krijgt de waarnemer voor zo'n element helemaal geen melding meer.
+     */
+    /*
+     * DE PLOEG TELT VANAF WAT ER SAMEN BINNENKOMT, NIET VANAF DE SECTIE.
+     *
+     * ploeg() nummert per sectie in de volgorde van de DOM, en dat ritme klopt
+     * voor onderdelen die samen in beeld komen: kop, tekst, drie kaarten naast
+     * elkaar. Maar op /privacy staan zeventien alinea's op stap 8, en elk ervan
+     * komt los in beeld als je leest. Die stond dan 560ms leeg nadat hij er al
+     * was — bij elke alinea opnieuw. Hetzelfde, kleiner, bij kaarten die op een
+     * telefoon onder elkaar staan.
+     *
+     * Daarom: wat in één melding van de waarnemer loskomt, is een groep. Per
+     * sectie gaat de laagste stap van die groep naar 0 en schuift de rest mee.
+     * Wat samen binnenkomt houdt zijn ritme; een losse alinea begint meteen.
+     * Het is een attribuut en geen stijl, dus de CSP blijft heel, en een haal in
+     * een kop leest de nieuwe vertraging vanzelf mee via --stap-vertraging.
+     */
+    function herstap(groep: HTMLElement[]) {
+      const perSectie = new Map<Element | null, HTMLElement[]>();
+
+      for (const element of groep) {
+        const sectie = element.closest('section');
+        perSectie.set(sectie, [...(perSectie.get(sectie) ?? []), element]);
+      }
+
+      for (const leden of perSectie.values()) {
+        const stappen = leden
+          .map((element) => Number(element.dataset.onthulStap))
+          .filter((stap) => Number.isFinite(stap));
+        if (stappen.length === 0) continue;
+
+        const laagste = Math.min(...stappen);
+        if (laagste === 0) continue;
+
+        for (const element of leden) {
+          const stap = Number(element.dataset.onthulStap);
+          if (Number.isFinite(stap)) element.dataset.onthulStap = String(stap - laagste);
+        }
+      }
+    }
+
+    const waarnemer = new IntersectionObserver(
+      (ingangen) => {
+        const losgelaten: HTMLElement[] = [];
+
+        for (const ingang of ingangen) {
+          if (!ingang.isIntersecting) continue;
+
+          // rootBounds en niet de hoogte van hierboven: die is van het laden en
+          // klopt niet meer zodra het venster van maat verandert.
+          const venster = ingang.rootBounds?.height ?? hoogte;
+          const groot = ingang.boundingClientRect.height > venster;
+          if (!groot && ingang.intersectionRatio < 0.2) continue;
+
+          const element = ingang.target as HTMLElement;
+          losgelaten.push(element);
+          waarnemer.unobserve(element);
+        }
+
+        // Eerst de stappen, dan de staat: de vertraging moet er staan op het
+        // moment dat de animatie wordt aangekoppeld.
+        herstap(losgelaten);
+        for (const element of losgelaten) element.dataset.onthulStaat = 'loopt';
+      },
+      { threshold: [0, 0.2] },
+    );
+
+    for (const element of wachtenden) waarnemer.observe(element);
+
+    /*
+     * Focus op iets wat nog verborgen staat: meteen klaar, zonder animatie.
+     *
+     * Een veld onderin een groot blok — het hele formulier is één blok — kan
+     * focus krijgen terwijl dat blok de drempel van 0,2 nog niet haalt. Dan
+     * typt een toetsenbordgebruiker in een veld dat hij niet ziet, met een
+     * onzichtbare focusring. 'klaar' en niet 'loopt': de bezoeker is er al.
+     */
+    document.addEventListener('focusin', (gebeurtenis) => {
+      const doel =
+        gebeurtenis.target instanceof Element
+          ? gebeurtenis.target.closest<HTMLElement>('[data-onthul]:not([data-onthul-staat])')
+          : null;
+      if (!doel) return;
+
+      doel.dataset.onthulStaat = 'klaar';
+      waarnemer.unobserve(doel);
+    });
+
+    /*
+     * HET VANGNET. Een animatie die niet start mag nooit tot onzichtbare tekst
+     * leiden — dat is sinds B11 een regel in design-system.md, en dit is de
+     * handhaving ervan voor de opening.
+     *
+     * De aanleiding was een cirkel die precies dat deed: de kop stond
+     * gepauzeerd op zijn nulhoge masker, Chrome knipte de intersection-rect
+     * van de waarnemer op die clip-path, en de drempel van 0,2 werd dus nooit
+     * gehaald. De wachttoestand is daarom omgebouwd (zie beweging.css), maar
+     * een mechanisme dat één keer stil heeft gefaald, krijgt geen tweede kans
+     * op stil falen: wat er in de opening na de aanloop plus een halve seconde
+     * nog verborgen staat, wordt alsnog op klaar gezet en staat er dan gewoon.
+     *
+     * Alleen de opening. Elementen onder de vouw zijn niet onzichtbaar-met-
+     * ruimte voor de bezoeker die er nog niet is; die volgen de waarnemer, en
+     * als die faalt is dat zichtbaar bij het scrollen in plaats van als leeg
+     * eerste scherm.
+     */
+    const aanloop =
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--aanloop'),
+      ) || 0;
+
+    window.setTimeout(() => {
+      for (const element of wachtenden) {
+        if (element.dataset.onthulStaat !== undefined) continue;
+        if (!element.closest('[data-onthul-entree]')) continue;
+
+        element.dataset.onthulStaat = 'klaar';
+        waarnemer.unobserve(element);
+      }
+    }, aanloop + 500);
+  }
+</script>

@@ -1,0 +1,166 @@
+---
+import Basis from '../../layouts/Basis.astro';
+import { SectieLijst } from '../../lib/SectionRenderer';
+import { controleer, verstuur } from '../../lib/formulier';
+import { MELDING, VELDEN, formulierActief, type Variant } from '../../lib/formulier-velden';
+
+/*
+ * De route die de inzending afhandelt.
+ *
+ * DE EERSTE ROUTE IN DIT PROJECT DIE OP VERZOEK DRAAIT. Al het andere wordt
+ * vooraf gerenderd en `output: 'static'` blijft ook staan; Astro laat losse
+ * routes on demand draaien en dit is er een.
+ *
+ * WAAROM HIJ APART STAAT EN /contact NIET ON DEMAND IS. De contactpagina hoeft
+ * niets te weten — daar staat een formulier dat post. Alleen de afhandeling
+ * heeft een server nodig, en door die te scheiden blijft de pagina die iedereen
+ * bezoekt gewoon een statisch bestand.
+ *
+ * DRIE UITGANGEN, en alle drie zonder JavaScript:
+ *
+ *   goedgekeurd en verstuurd   303 naar /contact/bedankt
+ *   afgewezen als bot          303 naar /contact/bedankt, zonder te versturen
+ *   afgekeurd op een veld      deze pagina rendert het formulier opnieuw, met
+ *                              de fouten en de ingevulde waardes erin
+ *   GET in plaats van POST     303 naar /contact
+ *   formulier staat uit        deze pagina met alleen de melding, niets verstuurd
+ *
+ * Die laatste is er omdat mensen op deze URL kunnen belanden: uit de
+ * geschiedenis, via een bladwijzer, of doordat ze de pagina verversen na een
+ * verzending. Er valt hier niets te tonen zonder inzending, dus dan stuurt hij
+ * terug naar het formulier.
+ *
+ * 303 en niet 302: na een POST hoort de doorverwijzing een GET te worden. Met
+ * 302 mag de browser de methode behouden, en dan post hij de inzending nog een
+ * keer op de bedankpagina.
+ *
+ * GEEN PERSOONSGEGEVENS IN DE URL. De ingevulde waardes komen uit de POST-body
+ * en worden hier in de HTML teruggezet. Er gaat dus nooit een naam of mailadres
+ * door de adresbalk, waar het in de browsergeschiedenis en in serverlogs zou
+ * blijven staan. Dat is ook de reden dat een afkeuring géén doorverwijzing is
+ * maar een gerenderde pagina.
+ */
+export const prerender = false;
+
+if (Astro.request.method !== 'POST') {
+  return Astro.redirect('/contact', 303);
+}
+
+/*
+ * Staat het formulier uit, dan houdt het hier op. Er wordt niets gecontroleerd
+ * en niets verstuurd; de sectie hieronder toont zonder `actief` alleen de regel
+ * die zegt waar de bezoeker wél terechtkan.
+ *
+ * Dit kan alleen een gecachte pagina zijn of iets dat de HTML overslaat — als
+ * het formulier uit staat, staan de velden er niet. Reden te meer om hier niets
+ * aan te nemen en niets door te laten.
+ */
+const actief = formulierActief();
+
+/*
+ * Een body die geen formulier is, gaat terug naar het formulier. formData()
+ * gooit een TypeError bij elk ander content-type — een JSON-POST, een kale
+ * POST, kapotte multipart — en dat werd een 500 met een lege pagina. Scanners
+ * doen dat de hele dag, en dan staan de logs vol ruis precies waar je een
+ * mislukte verzending naar Resend wilt zien.
+ */
+let data: FormData;
+try {
+  data = await Astro.request.formData();
+} catch {
+  return Astro.redirect('/contact', 303);
+}
+
+/*
+ * Deze pagina bevat na een afkeuring wat de bezoeker invulde. Die hoort in geen
+ * enkele cache te blijven staan, ook niet in de back/forward-cache van een
+ * gedeelde computer.
+ */
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+/*
+ * Welke variant het is, komt uit een verborgen veld. Het is een keuze uit twee
+ * en niets anders: alles wat er niet op lijkt wordt aanmelden, want dat is de
+ * variant op /contact. Een onbekende waarde is geen reden om iemand weg te
+ * sturen, maar wel om er niets van te geloven.
+ */
+const gevraagd = data.get('variant');
+const variant: Variant = gevraagd === 'inhuren' ? 'inhuren' : 'aanmelden';
+
+const { fouten, waardes, goedgekeurd, stilAfgewezen, reden } = actief
+  ? controleer(data, variant)
+  : { fouten: {}, waardes: {}, goedgekeurd: undefined, stilAfgewezen: false, reden: undefined };
+
+/*
+ * Wat er teruggezet wordt, nooit langer dan het veld mag zijn. De browser houdt
+ * zich aan maxLength, maar een POST van buiten niet: een bericht van drie
+ * megabyte kwam er in zijn geheel weer uit, als pagina van drie megabyte.
+ */
+const teruggezet = Object.fromEntries(
+  VELDEN[variant].map((veld) => [veld.naam, (waardes[veld.naam] ?? '').slice(0, veld.max)]),
+);
+
+/*
+ * Afgewezen als bot. Dezelfde doorverwijzing als bij een geslaagde inzending,
+ * maar verstuur() wordt niet aangeroepen — er gaat dus geen mail uit en er
+ * wordt niets aan Resend gevraagd.
+ *
+ * Dat het er van buiten hetzelfde uitziet is het hele punt: een bot die een
+ * foutmelding krijgt, weet dat hij ergens tegenaan liep en past zich aan.
+ */
+if (stilAfgewezen) {
+  // Alleen de reden en de variant. Zie verstuur() voor waarom nooit meer.
+  console.warn(`formulier: stil afgewezen (${variant}): ${reden ?? 'onbekend'}`);
+  return Astro.redirect('/contact/bedankt', 303);
+}
+
+let melding = fouten;
+
+if (goedgekeurd) {
+  const verzendfout = await verstuur(variant, goedgekeurd);
+
+  if (verzendfout === null) {
+    return Astro.redirect('/contact/bedankt', 303);
+  }
+
+  /*
+   * Het versturen mislukte. De bezoeker kan daar niets aan doen en hoort dus
+   * niet te lezen dat hij iets fout deed — hij krijgt het adres, zodat hij
+   * alsnog terechtkan. Zijn ingevulde tekst blijft staan om over te nemen.
+   *
+   * Een ontbrekende sleutel en een weigerende dienst leveren dezelfde melding
+   * op. Het verschil is voor ons en niet voor hem; check-resend vangt het geval
+   * dat de sleutel ontbreekt al vóór de deploy.
+   */
+  melding = { algemeen: MELDING.verzendfout };
+}
+
+const secties = [
+  {
+    actief,
+    type: 'formulier' as const,
+    achtergrond: 'bruin' as const,
+    ruimte: 'sectie-l' as const,
+    breedte: 'basis' as const,
+    variant,
+    kop: actief ? 'Even terug' : 'Nog even geduld',
+    tekst: !actief
+      ? undefined
+      : melding['algemeen']
+        ? 'Er ging iets mis. Hieronder staat wat er nog moet gebeuren.'
+        : // Geen "wat hieronder rood staat": wie geen rood ziet, heeft daar niets
+          // aan (WCAG 1.4.1). De melding staat als tekst onder elk veld.
+          'Er mist nog iets. Onder de velden staat wat er nog moet gebeuren.',
+    fouten: melding,
+    waardes: teruggezet,
+  },
+];
+---
+
+<Basis
+  titel="Even terug — De Club van 100"
+  beschrijving="Het formulier is nog niet verstuurd."
+  noindex
+>
+  <SectieLijst secties={secties} />
+</Basis>

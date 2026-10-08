@@ -1,0 +1,192 @@
+/*
+ * Scrollonthulling — Inslag als karakter, Ploeg als ritme.
+ *
+ * Eén mechanisme voor de hele site, geen animatie per sectie. Een element dat
+ * mee wil doen zet twee attributen:
+ *
+ *   data-onthul="blok"   dekking en verplaatsing
+ *   data-onthul="kop"    masker en verplaatsing, zonder dekking
+ *   data-onthul-stap="n" plek in de ploeg, 0 tot en met 8
+ *
+ * De waardes staan in src/styles/tokens.css; hier staat alleen hoe ze werken.
+ * Het motion-hoofdstuk van design-system.md legt uit waarom ze zijn wat ze zijn.
+ *
+ * Drie dingen die eruitzien alsof ze eenvoudiger kunnen en dat niet kunnen:
+ *
+ * 1. ALLES HANGT AAN [data-beweging="aan"] OP <html>. Dat attribuut zet
+ *    OnthulScript.astro, en alleen als de bezoeker geen gereduceerde beweging
+ *    vraagt. Zonder JavaScript blijft het weg en staat er dus niets verborgen.
+ *    Een begintoestand die niet aan een vlagje hangt, maakt van een uitgevallen
+ *    script een lege pagina.
+ *
+ * 2. HET IS EEN ANIMATIE EN GEEN TRANSITIE. Met animation-fill-mode: backwards
+ *    valt een element na afloop terug op zijn eigen stijl: geen clip-path meer,
+ *    geen transform meer, niets dat blijft hangen. Een transitie zou het masker
+ *    permanent moeten aanhouden, en dat knipt de staarten van een p en een g af.
+ *
+ * 3. DE WACHTTOESTAND IS opacity: 0, EN NADRUKKELIJK GEEN clip-path EN GEEN
+ *    GEPAUZEERDE ANIMATIE. Dat was hij wel — paused op het 0%-beeldje, zodat
+ *    de verborgen toestand maar op één plek stond — en dat bleek een cirkel:
+ *    Chrome knipt de intersection-rect van de waarnemer op de clip-path van
+ *    het element zélf. Een kop die gepauzeerd op zijn nulhoge masker stond,
+ *    had daardoor eeuwig intersectionRatio 0, haalde de drempel van 0,2
+ *    nooit, en bleef dus onzichtbaar terwijl hij ruimte innam — de verborgen
+ *    begintoestand verhinderde precies de melding die hem moest opheffen.
+ *    Gemeten in Chrome: isIntersecting true, ratio 0, intersectionRect 0 hoog.
+ *
+ *    Opacity raakt de intersection-rect niet en houdt het element in de
+ *    toegankelijkheidsboom. De animatie wordt pas aangekoppeld op 'loopt';
+ *    tijdens de vertraging houdt de backwards-vulling het 0%-beeldje vast, dus
+ *    het masker doet zijn werk nog steeds — alleen niet meer als wachtstand.
+ *
+ * De vertraging staat als attribuutselector en niet als losse waarde per
+ * element: een style-attribuut wordt door de CSP geblokkeerd. Zie CLAUDE.md.
+ *
+ * 4. HET BLOK HANGT AAN `screen`, NIET ALLEEN AAN DE VOORKEUR. Een
+ *    gebruikersvoorkeur geldt ook bij afdrukken, en afdrukken laat geen
+ *    waarnemer vuren. Wat nog niet in beeld was geweest, stond daardoor op
+ *    papier en in een pdf op dekking nul — gemeten op /privacy: 28 van de 34
+ *    blokken leeg, op /voorwaarden 13 van de 18. Op papier bestaat geen
+ *    binnenkomst, dus daar staat alles er zoals zonder JavaScript.
+ *    check-onthul bewaakt het.
+ */
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /*
+   * De wachttoestand: onzichtbaar via dekking, zonder animatie en zonder
+   * clip-path — zie punt 3 hierboven voor waarom dat geen detail is. De haal
+   * ('haal') staat er bewust niet bij: dat element bevat de tekst van de
+   * woordgroep, en die hoort mee te doen met de kop eromheen.
+   */
+  [data-beweging='aan'] [data-onthul='blok']:not([data-onthul-staat]),
+  [data-beweging='aan'] [data-onthul='kop']:not([data-onthul-staat]) {
+    opacity: 0;
+  }
+
+  /*
+   * In beeld gekomen: de waarnemer laat hem los en pas dán komt de animatie
+   * erop. De backwards-vulling houdt het 0%-beeldje vast zolang de vertraging
+   * van de ploeg loopt, dus tussen loslaten en beginnen is er geen beeldje
+   * waarop het element er al staat.
+   *
+   * 'klaar' krijgt geen regel: zonder 'loopt' is er geen animatie, en zonder
+   * de wachtregel hierboven geen dekking van nul. Er staat dus gewoon een
+   * element.
+   */
+  [data-beweging='aan'] [data-onthul='blok'][data-onthul-staat='loopt'] {
+    animation-name: inslag-dekking, inslag-hef;
+    animation-duration: var(--duur-inslag-dekking), var(--duur-inslag-hef);
+    animation-fill-mode: backwards;
+    animation-timing-function: var(--inslag);
+  }
+
+  [data-beweging='aan'] [data-onthul='kop'][data-onthul-staat='loopt'] {
+    animation-name: inslag-masker, inslag-hef;
+    animation-duration: var(--duur-inslag-dekking), var(--duur-inslag-hef);
+    animation-fill-mode: backwards;
+    animation-timing-function: var(--inslag);
+  }
+
+  /*
+   * De ploeg. Acht stappen is de bovengrens; daarboven zou een kaart onderaan
+   * een raster van tien meer dan een halve seconde stilstaan nadat hij in beeld
+   * is gekomen. src/lib/beweging.ts klemt op hetzelfde getal.
+   *
+   * Elke stap zet zijn vertraging ook als --stap-vertraging neer en leest die
+   * daarna zelf. Dat is geen omweg: een custom property erft, dus een haal
+   * binnen een kop op stap 2 kan er zijn eigen wachttijd bij optellen zonder
+   * dat iemand die stap nog een keer doorgeeft. Zie src/styles/haal.css.
+   */
+  [data-beweging='aan'] [data-onthul-stap='1'] {
+    --stap-vertraging: calc(1 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='2'] {
+    --stap-vertraging: calc(2 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='3'] {
+    --stap-vertraging: calc(3 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='4'] {
+    --stap-vertraging: calc(4 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='5'] {
+    --stap-vertraging: calc(5 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='6'] {
+    --stap-vertraging: calc(6 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='7'] {
+    --stap-vertraging: calc(7 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  [data-beweging='aan'] [data-onthul-stap='8'] {
+    --stap-vertraging: calc(8 * var(--ploeg));
+    animation-delay: var(--stap-vertraging);
+  }
+
+  /*
+   * De opening. Binnen [data-onthul-entree] — de hero die de pagina opent —
+   * komt er --aanloop bij elke stap: die elementen staan bij het laden al in
+   * beeld en animeren tóch, en zonder aanloop zou de klap vallen terwijl de
+   * pagina nog aan het opbouwen is. Drie attribuutselectors, dus dit wint van
+   * de stapregels hierboven en leest hun --stap-vertraging gewoon mee.
+   */
+  [data-beweging='aan'] [data-onthul-entree] [data-onthul] {
+    animation-delay: calc(var(--stap-vertraging, 0ms) + var(--aanloop));
+  }
+}
+
+/*
+ * De beeldjes zelf. Twee ervan hebben alleen een `from`: het eindbeeldje is dan
+ * de eigen stijl van het element, dus de onthulling weet niets van de kop of de
+ * kaart waar hij op landt.
+ */
+
+@keyframes inslag-dekking {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes inslag-hef {
+  from {
+    transform: translateY(var(--inslag-hef));
+  }
+}
+
+/*
+ * Het masker onder een kop. Een polygoon en geen inset(), want de vier punten
+ * mogen buiten het element vallen en een negatieve inset niet: het eindbeeldje
+ * loopt onder de kop door zodat de staarten van een p en een g heel blijven.
+ *
+ * Dit beeldje heeft wél een `to`. De eigen stijl van een kop is clip-path: none
+ * en daar valt niet naartoe te interpoleren; na afloop valt hij er vanzelf op
+ * terug, want de vulling staat op backwards.
+ */
+@keyframes inslag-masker {
+  from {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%);
+  }
+
+  to {
+    clip-path: polygon(
+      0% 0%,
+      100% 0%,
+      100% var(--inslag-masker),
+      0% var(--inslag-masker)
+    );
+  }
+}

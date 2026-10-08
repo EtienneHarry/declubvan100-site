@@ -1,0 +1,119 @@
+titel: Voor wie is de club? — De Club van 100
+beschrijving: >-
+  Honderd plekken. Niet iedereen komt erdoor. Iedereen die hier staat, heeft
+  honderd avonden achter een bar gestaan.
+secties:
+  - discriminant: hero
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-l
+        breedte: basis
+      kop: Voor wie is de club?
+      knop: {}
+      tweedeKnop: {}
+      beeld:
+        discriminant: false
+      schicht: true
+      vullend: false
+      dubbellaags: false
+  - discriminant: rijke-tekst
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-m
+        breedte: smal
+      kop: >-
+        Voor mensen die graag werken, maar niet willen dat hun *[hele agenda]
+        wordt bepaald door hun bijbaan.*
+      inhoud: >
+        Je bent sociaal, representatief en vindt het leuk om tussen de mensen te
+        staan. Horeca-ervaring is mooi meegenomen, maar je houding vinden we
+        minstens zo belangrijk.
+
+
+        Je komt opdagen als je zegt dat je komt. Je steekt je handen uit de
+        mouwen. En je snapt dat werken ook gewoon gezellig kan zijn.
+
+
+        Klinkt logisch? Dan zou je zomaar bij De Club kunnen passen.
+      schichtLijst: false
+  - discriminant: drie-kolommen
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-m
+        breedte: basis
+      items:
+        - kop: Work when you want.
+          taal: en
+          beeld:
+            discriminant: true
+            value:
+              bron: /beeld/de-100/secties/2/value/items/0/beeld/value/bron.jpeg
+              alt: Clublid lacht in een deuropening met een bierfust in de hand, de schicht op het shirt
+        - kop: Where you want.
+          taal: en
+          beeld:
+            discriminant: true
+            value:
+              bron: /beeld/de-100/secties/2/value/items/1/beeld/value/bron.jpg
+              alt: Iemand houdt een strookje papier omhoog met de tekst I want to work
+        - kop: With people you like.
+          taal: en
+          beeld:
+            discriminant: true
+            value:
+              bron: /beeld/de-100/secties/2/value/items/2/beeld/value/bron.jpg
+              alt: Clublid houdt lachend twee flessen omhoog, met De Club van 100 op het shirt
+      handschrift: Work when you want. Where you want. With people you like.
+  - discriminant: accordeon
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-m
+        breedte: smal
+      kop: Veelgestelde vragen
+      items:
+        - vraag: Wat verdien ik?
+          antwoord: >
+            Je wordt verloond via 365Werk. Je loon hangt af van je leeftijd en
+            de functie, en je ziet vooraf wat een dienst je oplevert. De week na
+            je gewerkte dienst staat het op je rekening — uitbetaling is altijd
+            op donderdag.
+        - vraag: Wat zijn de eisen?
+          antwoord: >
+            Je bent minimaal 18, sociaal en representatief, en je komt afspraken
+            na. Horeca-ervaring vermeld je bij je aanmelding; een horecadiploma
+            is niet nodig. Vertel vooral waar je enthousiast van wordt.
+        - vraag: Hoe werkt aanmelden en hoe lang duurt het?
+          antwoord: >
+            Je meldt je online aan, vult je horeca-ervaring in en vertelt waar
+            je enthousiast van wordt. Daarna volgt een korte kennismaking en
+            beoordelen we of je bij De Club past. Past het? Dan kun je aan de
+            slag.
+        - vraag: Zit ik ergens aan vast?
+          antwoord: >
+            Nee. Geen vast rooster, geen minimum aantal diensten, geen verplicht
+            aantal uren. Je kiest zelf welke diensten je aanneemt — maar een
+            aangenomen dienst is wel een afspraak.
+        - vraag: Hoe word ik uitbetaald en wanneer?
+          antwoord: >
+            Via 365Werk, geen zzp-constructie. Je gewerkte uren worden
+            doorgegeven en de week na je dienst uitbetaald, altijd op donderdag.
+  - discriminant: oproep
+    value:
+      weergave:
+        achtergrond: bruin
+        ruimte: sectie-l
+        breedte: basis
+      bovenkop: Meld je
+      kop: '*Omdat groter niet altijd {beter is.}*'
+      tekst: >-
+        Denk je dat jij een van de betere achter de bar van de stad bent, laat
+        het weten.
+      knop:
+        label: Aanmelden
+        href: /contact
+      tweedeKnop: {}
+      pijl: true

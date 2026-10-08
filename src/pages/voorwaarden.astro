@@ -1,0 +1,24 @@
+---
+import Basis from '../layouts/Basis.astro';
+import { SectieLijst } from '../lib/SectionRenderer';
+import { leesPagina } from '../lib/pagina';
+
+/*
+ * Voorwaarden — de enige lichte pagina.
+ *
+ * De inhoud komt uit het CMS: src/content/paginas/voorwaarden.yaml. De tekst
+ * van de acht artikelen staat daar als markdown, letterlijk overgenomen uit
+ * de voorwaarden die de klant aanleverde.
+ *
+ * Punt 6 verwijst naar de privacyverklaring en linkt daar sinds die pagina
+ * bestaat ook naartoe, naar /privacy. Die verwijzing stond een tijd zonder
+ * link omdat de verklaring er nog niet was; dat blokkeerde livegang en is nu
+ * opgelost.
+ */
+
+const { titel, beschrijving, secties } = await leesPagina('voorwaarden');
+---
+
+<Basis titel={titel} beschrijving={beschrijving}>
+  <SectieLijst secties={secties} />
+</Basis>

@@ -1,0 +1,18 @@
+---
+/**
+ * De bliksemschicht: het enige eigen vormelement van het merk.
+ *
+ * Social avatar, watermerk, groot decoratief vlak. Let op de regels uit het
+ * design system: maximaal drie schichten per pagina, nooit in de tekstkolom,
+ * nooit als achtergrondpatroon, nooit naast het logo, nooit kleiner dan 16px.
+ * Dit component dwingt die regels niet af — het levert alleen de vorm.
+ *
+ * Zelfde afspraak als de andere logo's: currentColor erft de tekstkleur, geen
+ * fill van buitenaf, formaat komt van de ouder.
+ */
+import Bron from '../../assets/logo/bliksem.svg';
+
+export type Props = Record<string, never>;
+---
+
+<Bron />

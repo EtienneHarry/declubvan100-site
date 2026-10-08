@@ -1,0 +1,50 @@
+---
+import Basis from '../../layouts/Basis.astro';
+import { SectieLijst } from '../../lib/SectionRenderer';
+
+/*
+ * De bevestiging na een geslaagde inzending.
+ *
+ * EEN EIGEN PAGINA EN GEEN MELDING OP /contact. Na een POST verwijst de route
+ * door met een 303, en dan staat hier een gewone GET. Dat is de
+ * post-redirect-get-volgorde, en hij lost iets op wat anders bij elke bezoeker
+ * langskomt: wie ververst na een verzending, verstuurt niet nog een keer.
+ *
+ * Bovendien kan deze pagina daardoor vooraf gerenderd worden. Er staat niets in
+ * dat per bezoeker verschilt.
+ *
+ * DE KOP LIGT VAST IN HET DESIGN SYSTEM en is hier niet verzonnen. De bron
+ * geeft "Binnen. Je hoort binnen een dag van ons." — die belofte doet niemand
+ * gestand, dus het microcopy-hoofdstuk van design-system.md schrijft
+ * "Binnen. Je hoort van ons." voor. Dat is de eindtekst: de klant heeft
+ * beslist dat er geen reactietermijn komt.
+ *
+ * De zin eronder, over mailen om iets toe te voegen, staat niet in de bron en
+ * is na de goedkeuring van de teksten bijgekomen. Hij wacht nog op het
+ * akkoord van de klant.
+ *
+ * noindex omdat een bedankpagina niets te zoeken heeft in Google: wie hem via
+ * een zoekresultaat opent, heeft niets verstuurd en leest een bevestiging van
+ * niets.
+ */
+
+const secties = [
+  {
+    type: 'kop-tekst' as const,
+    achtergrond: 'bruin' as const,
+    ruimte: 'sectie-l' as const,
+    breedte: 'basis' as const,
+    kop: 'Binnen. Je hoort van ons.',
+    tekst:
+      'We hebben je bericht ontvangen. Wil je er iets aan toevoegen, mail dan naar contact@declubvan.nl.',
+  },
+];
+---
+
+<Basis
+  titel="Binnen — De Club van 100"
+  beschrijving="Je bericht is verstuurd."
+  noindex
+>
+  <SectieLijst secties={secties} />
+</Basis>
