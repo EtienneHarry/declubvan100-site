@@ -843,6 +843,21 @@ Vijf dingen die je niet moet weghalen:
   element met een eigen verhouding, en die wint van een insetpaar zodra de
   andere maat op `auto` staat. Gemeten om een kop van 467×73: met alleen insets
   werd het vlak 531×319, met alleen een hoogte erbij 173×104.
+- **De haal heeft een eigen waarnemer in `OnthulScript`.** Die telt de
+  onderste kwart van het venster niet mee en wil de helft van de haal erboven
+  zien. Op de gewone drempel tekende hij zich onderaan het scherm, waar
+  niemand kijkt, en stond hij er al als je ernaartoe scrolde. Een haal buiten
+  de opening staat ook bij het laden nooit meteen klaar; hij wordt pas
+  waargenomen als het lettertype binnen is en de pagina getekend. Staat de kop
+  eromheen er al, dan zet het script `data-haal-kort` en wacht de lijn alleen
+  nog `--haal-pauze`. Onderaan de pagina, waar die lijn niet te halen is, gaat
+  hij los zodra er tot de bodem gescrold is.
+
+**Lees een duur-token nooit met een losse `parseFloat`.** In de geminificeerde
+CSS staat `.52s` en niet `520ms`, en `parseFloat` maakt daar 0,52 van. De
+teller telde zo in één beeldje naar 100, en het vangnet van de opening ging te
+vroeg af. Gebruik `duurInMs()` uit `src/lib/duur.ts`; die kijkt naar de
+eenheid.
 
 De zoom bij hover zit in `Beeldvlak` achter `zoom`, en staat alleen aan waar het
 beeld ergens heen gaat: in de praktijk een splitscreen-deur mét knop. Let op dat

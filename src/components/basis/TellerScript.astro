@@ -13,6 +13,8 @@
 ---
 
 <script>
+  import { duurInMs } from '../../lib/duur';
+
   const teller = document.querySelector<HTMLElement>('[data-teller]');
 
   if (teller) {
@@ -29,7 +31,9 @@
        * precies wat hier gebeurt.
        */
       const stijl = getComputedStyle(document.documentElement);
-      const duur = Number.parseFloat(stijl.getPropertyValue('--duur-4'));
+      // Via duurInMs en niet met parseFloat: in de geminificeerde CSS staat
+      // `.52s` en niet `520ms`, en dan telde hij in één beeldje naar 100.
+      const duur = duurInMs(stijl.getPropertyValue('--duur-4'));
       const curve = stijl.getPropertyValue('--soepel-uit');
 
       /**
@@ -101,6 +105,12 @@
        * de klem aan beide kanten.
        */
       function tel() {
+        // Geen bruikbare duur: dan het eindgetal, en geen deling door nul.
+        if (!(duur > 0)) {
+          herstel();
+          return;
+        }
+
         let begin: number | null = null;
 
         function stap(nu: number) {

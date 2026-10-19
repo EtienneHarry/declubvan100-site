@@ -15,6 +15,8 @@
 ---
 
 <script>
+  import { duurInMs } from '../../lib/duur';
+
   const rustig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const elementen = Array.from(document.querySelectorAll<HTMLElement>('[data-onthul]'));
 
@@ -53,6 +55,7 @@
      * staat er al "klaar" op.
      */
     const wachtenden: HTMLElement[] = [];
+    const halen: HTMLElement[] = [];
 
     elementen.forEach((element, index) => {
       const kader = kaders[index];
@@ -68,6 +71,17 @@
       const inEntree = element.closest('[data-onthul-entree]') !== null;
       if (inEntree && element.dataset.onthul !== 'haal') {
         element.dataset.onthulStaat = 'entree';
+        return;
+      }
+
+      /*
+       * Een haal buiten de opening staat nooit meteen klaar, ook niet als hij
+       * bij het laden in beeld is. Hij is versiering die zich trékt, en een
+       * getekende haal is geen inhoud die de bezoeker anders zou missen. Hij
+       * gaat naar zijn eigen waarnemer, hieronder.
+       */
+      if (element.dataset.onthul === 'haal' && !inEntree) {
+        halen.push(element);
         return;
       }
 
@@ -157,6 +171,91 @@
     for (const element of wachtenden) waarnemer.observe(element);
 
     /*
+     * DE HAAL HEEFT ZIJN EIGEN WAARNEMER, EN DIE KIJKT HOGER IN HET VENSTER.
+     *
+     * Op de gewone drempel ging de haal los zodra een vijfde ervan onderaan
+     * het scherm verscheen, en dan nog --haal-wacht later tekende hij zich in
+     * de onderste strook van het venster — waar niemand kijkt. Wie er daarna
+     * naartoe scrolde, vond een ovaal die er al stond. Gemeten in Chrome op
+     * /opdrachtgevers: losgelaten bij een top van 749 in een venster van 800.
+     *
+     * Nu telt de onderste kwart van het venster niet mee, en moet de helft van
+     * de haal erboven staan. Dan tekent hij zich waar de bezoeker leest.
+     *
+     * Een haal die zo laag op de pagina staat dat hij die lijn nooit haalt,
+     * gaat los zodra er tot onderaan gescrold is — anders zou hij daar nooit
+     * getekend worden.
+     */
+    const wachtendeHalen = new Set(halen);
+
+    /*
+     * Staat de kop eromheen er al — klaar bij het laden, of zijn binnenkomst
+     * is afgelopen — dan hoeft de haal daar niet meer op te wachten.
+     * --haal-wacht is de binnenkomst van de kop plus een pauze; zonder die
+     * binnenkomst blijft alleen de pauze over (zie haal.css). Anders tekent
+     * hij zich nog een halve seconde later dan nodig, en dan is de lezer al
+     * verder.
+     */
+    function kopStaatEr(haal: HTMLElement) {
+      const kop = haal.parentElement?.closest<HTMLElement>('[data-onthul]');
+      if (!kop) return true;
+      const staat = kop.dataset.onthulStaat;
+      if (staat === 'klaar') return true;
+      return staat !== undefined && kop.getAnimations().length === 0;
+    }
+
+    function laatHaalLos(haal: HTMLElement) {
+      if (!wachtendeHalen.delete(haal)) return;
+      if (kopStaatEr(haal)) haal.dataset.haalKort = '';
+      haal.dataset.onthulStaat = 'loopt';
+      haalWaarnemer.unobserve(haal);
+    }
+
+    const haalWaarnemer = new IntersectionObserver(
+      (ingangen) => {
+        for (const ingang of ingangen) {
+          if (ingang.isIntersecting && ingang.intersectionRatio >= 0.5) {
+            laatHaalLos(ingang.target as HTMLElement);
+          }
+        }
+      },
+      { rootMargin: '0px 0px -25% 0px', threshold: [0, 0.5] },
+    );
+
+    /*
+     * Pas waarnemen als de pagina er staat: het lettertype binnen en twee
+     * beeldjes verder. Een haal die bij het laden al in beeld is, ging anders
+     * los vóór de eerste verf — gemeten op een telefoon: getekend tussen 347
+     * en 794 ms, terwijl een echte verbinding dan nog niets heeft laten zien.
+     * Het lettertype ook omdat HaalScript daarna opnieuw meet.
+     */
+    const lettertype = document.fonts?.ready ?? Promise.resolve();
+    lettertype.then(() => {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          for (const haal of halen) haalWaarnemer.observe(haal);
+        }),
+      );
+    });
+
+    if (halen.length > 0) {
+      const opBodem = () => {
+        if (wachtendeHalen.size === 0) {
+          window.removeEventListener('scroll', opBodem);
+          return;
+        }
+        const onderkant = window.scrollY + window.innerHeight;
+        if (onderkant < document.documentElement.scrollHeight - 2) return;
+
+        for (const haal of [...wachtendeHalen]) {
+          const kader = haal.getBoundingClientRect();
+          if (kader.bottom > 0 && kader.top < window.innerHeight) laatHaalLos(haal);
+        }
+      };
+      window.addEventListener('scroll', opBodem, { passive: true });
+    }
+
+    /*
      * Focus op iets wat nog verborgen staat: meteen klaar, zonder animatie.
      *
      * Een veld onderin een groot blok — het hele formulier is één blok — kan
@@ -193,10 +292,11 @@
      * als die faalt is dat zichtbaar bij het scrollen in plaats van als leeg
      * eerste scherm.
      */
-    const aanloop =
-      Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--aanloop'),
-      ) || 0;
+    // Via duurInMs en niet met parseFloat: in de geminificeerde CSS staat
+    // `.3s` en niet `300ms`.
+    const aanloop = duurInMs(
+      getComputedStyle(document.documentElement).getPropertyValue('--aanloop'),
+    );
 
     window.setTimeout(() => {
       for (const element of wachtenden) {
