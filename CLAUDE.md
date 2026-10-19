@@ -733,12 +733,17 @@ Negen dingen die je niet moet weghalen:
   13 van de 18. Het tekenblok van `haal.css` staat om dezelfde reden op
   `screen`. `check-onthul` bewaakt dat het verbergen alleen binnen
   `@media screen` staat.
-- **De opening animeert wél, met een aanloop.** Elementen binnen
-  `[data-onthul-entree]` — de hero op kopniveau 1 zet dat attribuut — worden
-  bij het laden níet op klaar gezet maar aan de waarnemer gegeven, die voor een
-  zichtbaar element direct vuurt. `beweging.css` telt er `--aanloop` (300ms)
-  bij op, zodat de pagina eerst even staat. De regel "wat er al staat, staat er
-  meteen" blijft gelden voor elke gewone sectie die toevallig in beeld is.
+- **De opening animeert op CSS alleen, met een aanloop.** Kop en blokken binnen
+  `[data-onthul-entree]` — de hero op kopniveau 1 zet dat attribuut — krijgen
+  hun animatie rechtstreeks uit `beweging.css`, zonder vlagje en zonder
+  waarnemer, met `--aanloop` (300ms) erbij. `OnthulScript` zet er `entree` op
+  en laat ze verder met rust. Wachtten ze op het script, dan stond de hero
+  eerst zichtbaar, verdween hij als het vlagje kwam en kwam hij pas na de
+  aanloop terug: op een trage verbinding een flits en een gat. Alleen een haal
+  in de opening loopt nog via de waarnemer, want die tekent op `loopt`.
+- **Wat bij het laden ergens in beeld staat, staat er meteen.** Elk stukje
+  telt, niet een vijfde: een blok dat net boven de vouw uitsteekt heeft de
+  bezoeker al gezien, en met die vijfde verdween het weer tot er gescrold werd.
 - **De teller hangt aan de kop, niet aan een eigen klok.** Bij `animationstart`
   van de kop zet `TellerScript` een 0, bij `animationend` van het masker telt hij
   naar het eindgetal. Met een eigen klok zat de klim achter het masker: het
