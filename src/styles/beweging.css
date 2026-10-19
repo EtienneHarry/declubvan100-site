@@ -97,54 +97,89 @@
    * binnen een kop op stap 2 kan er zijn eigen wachttijd bij optellen zonder
    * dat iemand die stap nog een keer doorgeeft. Zie src/styles/haal.css.
    */
-  [data-beweging='aan'] [data-onthul-stap='1'] {
+  [data-beweging='aan'] [data-onthul-stap='1'],
+  [data-onthul-entree] [data-onthul-stap='1'] {
     --stap-vertraging: calc(1 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='2'] {
+  [data-beweging='aan'] [data-onthul-stap='2'],
+  [data-onthul-entree] [data-onthul-stap='2'] {
     --stap-vertraging: calc(2 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='3'] {
+  [data-beweging='aan'] [data-onthul-stap='3'],
+  [data-onthul-entree] [data-onthul-stap='3'] {
     --stap-vertraging: calc(3 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='4'] {
+  [data-beweging='aan'] [data-onthul-stap='4'],
+  [data-onthul-entree] [data-onthul-stap='4'] {
     --stap-vertraging: calc(4 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='5'] {
+  [data-beweging='aan'] [data-onthul-stap='5'],
+  [data-onthul-entree] [data-onthul-stap='5'] {
     --stap-vertraging: calc(5 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='6'] {
+  [data-beweging='aan'] [data-onthul-stap='6'],
+  [data-onthul-entree] [data-onthul-stap='6'] {
     --stap-vertraging: calc(6 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='7'] {
+  [data-beweging='aan'] [data-onthul-stap='7'],
+  [data-onthul-entree] [data-onthul-stap='7'] {
     --stap-vertraging: calc(7 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
-  [data-beweging='aan'] [data-onthul-stap='8'] {
+  [data-beweging='aan'] [data-onthul-stap='8'],
+  [data-onthul-entree] [data-onthul-stap='8'] {
     --stap-vertraging: calc(8 * var(--ploeg));
     animation-delay: var(--stap-vertraging);
   }
 
   /*
    * De opening. Binnen [data-onthul-entree] — de hero die de pagina opent —
-   * komt er --aanloop bij elke stap: die elementen staan bij het laden al in
-   * beeld en animeren tóch, en zonder aanloop zou de klap vallen terwijl de
-   * pagina nog aan het opbouwen is. Drie attribuutselectors, dus dit wint van
-   * de stapregels hierboven en leest hun --stap-vertraging gewoon mee.
+   * animeren kop en blokken op CSS alleen, vanaf het eerste beeldje, en
+   * wachten ze NIET op het vlagje of de waarnemer.
+   *
+   * Dat deden ze wel, en dat gaf drie keer de verkeerde opening: de hero
+   * stond eerst zichtbaar, verdween zodra OnthulScript het vlagje zette, en
+   * kwam pas na --aanloop terug. Hoe later het script binnenkwam — een trage
+   * verbinding, een koude cache — hoe langer dat gat. Nu houdt de
+   * backwards-vulling het 0%-beeldje vast vanaf de eerste verf, en is het
+   * moment van binnenkomst de laadtijd van de pagina en niet die van het
+   * script.
+   *
+   * Zonder JavaScript loopt dit gewoon af en eindigt het op de eigen stijl,
+   * dus er blijft niets verborgen. OnthulScript zet op deze elementen
+   * 'entree' en laat ze verder met rust: de wachtregel en de 'loopt'-regel
+   * hierboven matchen dan niet, dus de animatie wordt niet herstart. Een haal
+   * in de opening loopt wel via de waarnemer, want die tekent op 'loopt'.
+   *
+   * Even specifiek als de stapregels en daarna, dus de vertraging hier wint
+   * en leest hun --stap-vertraging mee.
    */
-  [data-beweging='aan'] [data-onthul-entree] [data-onthul] {
+  [data-onthul-entree] [data-onthul='blok'] {
+    animation-name: inslag-dekking, inslag-hef;
+    animation-duration: var(--duur-inslag-dekking), var(--duur-inslag-hef);
+    animation-fill-mode: backwards;
+    animation-timing-function: var(--inslag);
+    animation-delay: calc(var(--stap-vertraging, 0ms) + var(--aanloop));
+  }
+
+  [data-onthul-entree] [data-onthul='kop'] {
+    animation-name: inslag-masker, inslag-hef;
+    animation-duration: var(--duur-inslag-dekking), var(--duur-inslag-hef);
+    animation-fill-mode: backwards;
+    animation-timing-function: var(--inslag);
     animation-delay: calc(var(--stap-vertraging, 0ms) + var(--aanloop));
   }
 }

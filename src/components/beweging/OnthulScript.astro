@@ -27,19 +27,16 @@
     const hoogte = window.innerHeight || document.documentElement.clientHeight;
 
     /**
-     * Staat dit element genoeg in beeld? Een vijfde van zijn hoogte, dezelfde
-     * drempel als de waarnemer hieronder.
+     * Staat dit element bij het laden al in beeld? Elk stukje telt.
      *
-     * De tweede tak is voor een element dat zelf hoger is dan het venster — een
-     * deur met een lange kop op een telefoon. Dat haalt die vijfde nooit, en
-     * zonder deze tak zou het dus nooit onthuld worden.
+     * Dat was een vijfde van zijn hoogte, dezelfde drempel als de waarnemer.
+     * Maar bij het laden is er nog niet gescrold: wat net boven de vouw
+     * uitsteekt, heeft de bezoeker al gezien zodra het script draait. Met die
+     * vijfde verdween zo'n blok onderaan het eerste scherm weer, en kwam het
+     * pas terug na een stukje scrollen.
      */
     function genoegInBeeld(kader: DOMRect) {
-      if (kader.bottom <= 0 || kader.top >= hoogte) return false;
-      if (kader.height > hoogte) return true;
-
-      const zichtbaar = Math.min(kader.bottom, hoogte) - Math.max(kader.top, 0);
-      return kader.height > 0 && zichtbaar / kader.height >= 0.2;
+      return kader.height > 0 && kader.bottom > 0 && kader.top < hoogte;
     }
 
     /*
@@ -62,12 +59,19 @@
 
       /*
        * De opening is de uitzondering op "wat er al staat, staat er meteen".
-       * Elementen binnen [data-onthul-entree] gaan naar de waarnemer, ook al
-       * staan ze in beeld: die vuurt voor een zichtbaar element direct, dus ze
-       * krijgen 'loopt' en animeren — met de --aanloop die beweging.css er
-       * voor deze groep bij optelt, zodat de pagina eerst even staat.
+       * Kop en blokken daarin animeren op CSS alleen, vanaf de eerste verf
+       * (zie beweging.css); 'entree' houdt ze buiten de wachtregel en de
+       * 'loopt'-regel, zodat het vlagje hun lopende animatie niet herstart.
+       * Een haal in de opening gaat wél naar de waarnemer: die tekent op
+       * 'loopt', en de waarnemer vuurt voor een zichtbaar element direct.
        */
-      if (kader && genoegInBeeld(kader) && !element.closest('[data-onthul-entree]')) {
+      const inEntree = element.closest('[data-onthul-entree]') !== null;
+      if (inEntree && element.dataset.onthul !== 'haal') {
+        element.dataset.onthulStaat = 'entree';
+        return;
+      }
+
+      if (kader && genoegInBeeld(kader) && !inEntree) {
         element.dataset.onthulStaat = 'klaar';
       } else {
         wachtenden.push(element);
