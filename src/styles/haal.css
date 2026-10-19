@@ -201,6 +201,16 @@
    * Een CSS-declaratie wint van een presentatie-attribuut, dus de 0 hier
    * verslaat de beginwaarde die het script op het pad zette.
    */
+  /*
+   * De kop eromheen staat er al (OnthulScript zet dan data-haal-kort): niet
+   * meer wachten op zijn binnenkomst of zijn plek in de ploeg, alleen nog de
+   * pauze. Op het haal-element zelf, zodat de lijn het erft.
+   */
+  [data-beweging='aan'] [data-onthul='haal'][data-haal-kort] {
+    --haal-wacht: var(--haal-pauze);
+    --stap-vertraging: 0ms;
+  }
+
   [data-beweging='aan'] [data-onthul='haal'][data-onthul-staat='loopt'] [data-haal-lijn] {
     stroke-dashoffset: 0;
     transition: stroke-dashoffset var(--duur-haal-streep) var(--haal)
@@ -251,14 +261,13 @@
   }
 
   /*
-   * Stond al in beeld bij het laden. Geen tekening en geen wachttijd: de haal
-   * staat er dan gewoon, net als de kop waar hij omheen zit. HaalScript zet de
-   * dasharray wel op elke passende gemeten haal (de pijl, met pathLength, slaat
-   * het over), ook op deze, maar de beginoffset alleen zolang er nog geen
-   * data-onthul-staat is — en OnthulScript, dat eerder in de layout staat,
-   * heeft 'klaar' dan al gezet. De offset blijft
-   * dus op zijn initiële 0. Deze regel zet hem daar nog eens expliciet op en
-   * schakelt de transitie uit, voor het geval die volgorde ooit omdraait.
+   * 'klaar' zonder tekening. OnthulScript zet een haal buiten de opening
+   * nooit meer meteen op klaar — ook in beeld bij het laden gaat hij naar zijn
+   * eigen waarnemer en tekent hij zich — maar het vangnet van de opening kan
+   * het nog wel. Dan staat hij er gewoon, zonder wachttijd. HaalScript zet de
+   * beginoffset alleen zolang er nog geen data-onthul-staat is; deze regel zet
+   * hem daarnaast expliciet op 0 en schakelt de transitie uit, voor het geval
+   * de volgorde van de twee scripts ooit omdraait.
    */
   [data-beweging='aan'] [data-onthul='haal'][data-onthul-staat='klaar'] [data-haal-lijn] {
     stroke-dashoffset: 0;
