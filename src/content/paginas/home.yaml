@@ -1,4 +1,4 @@
-titel: De Club van 100
+titel: Hoi Lune de website is live!
 beschrijving: >-
   Geen uitzendbureau, maar een selectie van honderd horeca- en
   eventprofessionals in en rond Groningen. Wij regelen de mensen.
@@ -10,7 +10,7 @@ secties:
         ruimte: sectie-l
         breedte: basis
       bovenkop: Meer dan een uitzendbureau. Echte mensen.
-      kop: De Club van 100
+      kop: Hoi Lune de website is live
       tekst: >-
         Geen uitzendbureau, maar een selectie van honderd horeca- en
         eventprofessionals in en rond Groningen.
@@ -23,8 +23,10 @@ secties:
       beeld:
         discriminant: true
         value:
-          bron: /beeld/home/Jor Sep achter.jpg
-          alt: Twee Clubleden op de rug gezien in een Groningse straat, één met de schicht op zijn shirt
+          bron: /beeld/home/secties/0/value/beeld/value/bron.jpg
+          alt: >-
+            Twee Clubleden op de rug gezien in een Groningse straat, één met de
+            schicht op zijn shirt
       schicht: false
       vullend: true
       dubbellaags: true
@@ -34,7 +36,6 @@ secties:
         achtergrond: bruin
         ruimte: sectie-l
         breedte: basis
-      bovenkop: ""
       kop: Wij regelen de mensen.
       tekst: >-
         Honderd horeca- en eventprofessionals, in en rond Groningen. Jij regelt
